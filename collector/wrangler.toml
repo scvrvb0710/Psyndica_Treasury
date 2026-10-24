@@ -13,7 +13,7 @@ STALE_SECONDS = "600"
 [[d1_databases]]
 binding = "DB"
 database_name = "sats-collector"
-database_id = "REPLACE_WITH_ID_FROM_wrangler_d1_create"
+database_id = "3993d13c-6b60-4ba3-bc23-bff729215369"
 
 # Secrets - set with `npx wrangler secret put <NAME>`, never commit them:
 #   COLLECTOR_SECRET  (required) 32+ random chars, shared with the scanner

@@ -39,8 +39,10 @@ least two weeks, per SECURITY.md.
 ```bash
 cd collector
 npx wrangler@<version> login
-npx wrangler@<version> d1 create sats-collector       # copy database_id into wrangler.toml
-npx wrangler@<version> d1 execute sats-collector --remote --file=schema.sql
+# D1 database "sats-collector" already exists with schema.sql applied
+# (id in wrangler.toml). For a fresh account instead:
+#   npx wrangler@<version> d1 create sats-collector   # copy database_id into wrangler.toml
+#   npx wrangler@<version> d1 execute sats-collector --remote --file=schema.sql
 
 python3 -c "import secrets; print(secrets.token_hex(32))"   # the collector secret
 npx wrangler@<version> secret put COLLECTOR_SECRET          # paste it
