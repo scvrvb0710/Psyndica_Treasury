@@ -1,4 +1,4 @@
-"""Command line: demo | backtest | scan.
+"""Command line: demo | backtest | scan | collector-export.
 
 Nothing here places orders. `scan` is shadow mode: it reads the block
 explorer, scores on-chain pressure, and logs the reading with a trace_id.
@@ -15,6 +15,7 @@ from dataclasses import asdict
 from . import backtest
 from .config import DCAParams, EngineConfig
 from .data import synthetic
+from .data.collector import CollectorClient, CollectorError, load_secret
 from .data.explorer import DEFAULT_BASE_URL, MempoolExplorer
 from .data.rpc import DEFAULT_COOKIE, DEFAULT_RPC_URL, BitcoinRPC, NodeExplorer, RPCError, http_transport, load_auth
 from .data.loaders import append_snapshot, load_bars, load_onchain
@@ -77,6 +78,13 @@ def cmd_scan(args) -> int:
     else:
         explorer = MempoolExplorer(args.base_url, whale_threshold_btc=args.whale_btc)
         source = args.base_url
+    collector = None
+    if args.push:
+        try:
+            collector = CollectorClient(args.push, load_secret())
+        except CollectorError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
     pressure = OnChainPressure(EngineConfig().onchain)
     while True:
         snap = explorer.snapshot()
@@ -85,9 +93,10 @@ def cmd_scan(args) -> int:
         if all(v is None for k, v in asdict(snap).items() if k != "ts"):
             detail = f" ({status})" if status else ""
             print(f"WARNING: no data from {source}{detail} - treat as stale, not neutral.", file=sys.stderr)
+        trace_id, source_kind = new_trace_id(), "rpc" if args.rpc else "mempool-api"
         record = {
-            "trace_id": new_trace_id(),
-            "source": "rpc" if args.rpc else "mempool-api",
+            "trace_id": trace_id,
+            "source": source_kind,
             "status": status,
             "snapshot": asdict(snap),
             "pressure": asdict(reading),
@@ -97,9 +106,30 @@ def cmd_scan(args) -> int:
         sys.stdout.flush()
         if args.save:
             append_snapshot(args.save, snap)
+        if collector:
+            try:
+                collector.push(snap, trace_id, source_kind)
+            except CollectorError as e:
+                print(f"WARNING: {e}", file=sys.stderr)
+            if collector.pending:
+                print(f"WARNING: collector unreachable, {len(collector.pending)} snapshot(s) queued",
+                      file=sys.stderr)
         if not args.watch:
             return 0
         time.sleep(args.interval)
+
+
+def cmd_collector_export(args) -> int:
+    try:
+        client = CollectorClient(args.url, load_secret())
+        csv_text = client.export_csv(args.source, args.since)
+    except CollectorError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+    with open(args.out, "w") as f:
+        f.write(csv_text)
+    print(f"wrote {max(csv_text.count(chr(10)) - 1, 0)} snapshots to {args.out}", file=sys.stderr)
+    return 0
 
 
 def main(argv=None) -> int:
@@ -138,7 +168,16 @@ def main(argv=None) -> int:
     p.add_argument("--watch", action="store_true", help="loop forever")
     p.add_argument("--interval", type=float, default=60.0, help="seconds between scans")
     p.add_argument("--save", help="append snapshots to this CSV for later backtests")
+    p.add_argument("--push", metavar="URL",
+                   help="also push signed snapshots to the Cloudflare collector (secret from SATS_COLLECTOR_SECRET)")
     p.set_defaults(fn=cmd_scan)
+
+    p = sub.add_parser("collector-export", help="download collected snapshots as a backtest CSV")
+    p.add_argument("--url", required=True, help="collector base URL (https://...)")
+    p.add_argument("--source", default="rpc", choices=["rpc", "mempool-api"])
+    p.add_argument("--since", type=int, default=0, help="unix seconds")
+    p.add_argument("--out", required=True)
+    p.set_defaults(fn=cmd_collector_export)
 
     args = ap.parse_args(argv)
     return args.fn(args)

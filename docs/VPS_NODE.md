@@ -52,6 +52,13 @@ While the node is syncing, every reading is empty and the scanner warns
 `syncing NN%`. That is correct: mempool data means nothing until the node
 has caught up.
 
+To also push to the Cloudflare collector (see `collector/README.md`), put
+the secret in an env file only root and the `bitcoin` user can read:
+```bash
+sudo install -m 0640 -o root -g bitcoin /dev/null /etc/sats-collector.env
+sudoedit /etc/sats-collector.env      # SATS_COLLECTOR_SECRET=<the secret>
+```
+
 Example `/etc/systemd/system/sats-scan.service`:
 ```ini
 [Unit]
@@ -62,7 +69,9 @@ Requires=bitcoind.service
 [Service]
 User=bitcoin
 WorkingDirectory=/home/bitcoin/Psyndica_Treasury
-ExecStart=/usr/bin/python3 -m sats_engine scan --rpc --watch --save /home/bitcoin/snaps.csv
+EnvironmentFile=/etc/sats-collector.env
+ExecStart=/usr/bin/python3 -m sats_engine scan --rpc --watch --save /home/bitcoin/snaps.csv \
+    --push https://sats-collector.<you>.workers.dev
 StandardOutput=append:/home/bitcoin/scan.jsonl
 Restart=on-failure
 

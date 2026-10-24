@@ -51,4 +51,5 @@ result or test, label it an estimate.
 
 ## Dev
 - Stdlib-only Python 3.10+. Tests: `python3 -m unittest discover -s tests`
+- Collector Worker: dependency-free JS. Tests: `cd collector && npm test` (Node 22+)
 - Run: `python3 -m sats_engine demo | backtest | scan`

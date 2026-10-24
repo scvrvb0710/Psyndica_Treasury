@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 *.csv
 !tests/fixtures/*.csv
+node_modules/
+.wrangler/

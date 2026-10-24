@@ -21,9 +21,11 @@ python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots no
 python3 -m sats_engine scan --watch --save snaps.csv \
     --base-url http://umbrel.local:3006/api     # or a mempool app
 python3 -m unittest discover -s tests
+(cd collector && npm test)                      # Worker tests, Node 22+, no installs
 ```
 
 Running a node on a VPS until you have hardware: [docs/VPS_NODE.md](docs/VPS_NODE.md).
+Collecting snapshots in Cloudflare with stale-data alerts: [collector/README.md](collector/README.md).
 
 ### Data formats
 - Prices: `ts,open,high,low,close[,volume]` (unix seconds, hourly bars by default)
@@ -46,5 +48,7 @@ sats_engine/
   data/loaders.py        CSV IO
   data/synthetic.py      regime-switching market for tests/demo
   backtest.py            run + score vs HODL/DCA in BTC
-  cli.py                 demo | backtest | scan
+  data/collector.py      signed push/export client for the Cloudflare collector
+  cli.py                 demo | backtest | scan | collector-export
+collector/               Cloudflare Worker + D1 (push-only, HMAC-signed, no npm deps)
 ```
