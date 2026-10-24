@@ -16,6 +16,7 @@ from . import backtest
 from .config import DCAParams, EngineConfig
 from .data import synthetic
 from .data.explorer import DEFAULT_BASE_URL, MempoolExplorer
+from .data.rpc import DEFAULT_COOKIE, DEFAULT_RPC_URL, BitcoinRPC, NodeExplorer, RPCError, http_transport, load_auth
 from .data.loaders import append_snapshot, load_bars, load_onchain
 from .models import new_trace_id
 from .signals.onchain import OnChainPressure
@@ -64,15 +65,30 @@ def cmd_backtest(args) -> int:
 
 def cmd_scan(args) -> int:
     print(SHADOW_BANNER, file=sys.stderr)
-    explorer = MempoolExplorer(args.base_url, whale_threshold_btc=args.whale_btc)
+    if args.rpc:
+        try:
+            auth = load_auth(args.rpc_cookie)
+        except RPCError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
+        rpc = BitcoinRPC(http_transport(args.rpc_url, auth))
+        explorer = NodeExplorer(rpc, whale_threshold_btc=args.whale_btc)
+        source = args.rpc_url
+    else:
+        explorer = MempoolExplorer(args.base_url, whale_threshold_btc=args.whale_btc)
+        source = args.base_url
     pressure = OnChainPressure(EngineConfig().onchain)
     while True:
         snap = explorer.snapshot()
         reading = pressure.update(snap)
+        status = getattr(explorer, "status", None)
         if all(v is None for k, v in asdict(snap).items() if k != "ts"):
-            print(f"WARNING: no data from {args.base_url} - treat as stale, not neutral.", file=sys.stderr)
+            detail = f" ({status})" if status else ""
+            print(f"WARNING: no data from {source}{detail} - treat as stale, not neutral.", file=sys.stderr)
         record = {
             "trace_id": new_trace_id(),
+            "source": "rpc" if args.rpc else "mempool-api",
+            "status": status,
             "snapshot": asdict(snap),
             "pressure": asdict(reading),
             "pressure_ready": reading.ready,
@@ -113,6 +129,11 @@ def main(argv=None) -> int:
     p = sub.add_parser("scan", help="read the block explorer and score on-chain pressure")
     p.add_argument("--base-url", default=DEFAULT_BASE_URL,
                    help="mempool.space-compatible API; prefer your own node")
+    p.add_argument("--rpc", action="store_true",
+                   help="read your own Knots/Core node over JSON-RPC instead (pruned is fine)")
+    p.add_argument("--rpc-url", default=DEFAULT_RPC_URL)
+    p.add_argument("--rpc-cookie", default=DEFAULT_COOKIE,
+                   help="node .cookie file; or set BITCOIN_RPC_USER/BITCOIN_RPC_PASSWORD")
     p.add_argument("--whale-btc", type=float, default=100.0)
     p.add_argument("--watch", action="store_true", help="loop forever")
     p.add_argument("--interval", type=float, default=60.0, help="seconds between scans")

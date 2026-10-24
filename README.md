@@ -17,10 +17,13 @@ python3 -m sats_engine demo                     # synthetic market, $500 stack
 python3 -m sats_engine demo --dca-usd 50        # with weekly smart DCA
 python3 -m sats_engine backtest --prices btc_1h.csv --onchain snaps.csv
 python3 -m sats_engine scan                     # one block-explorer reading
+python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots node (pruned OK)
 python3 -m sats_engine scan --watch --save snaps.csv \
-    --base-url http://umbrel.local:3006/api     # build on-chain history from your own node
+    --base-url http://umbrel.local:3006/api     # or a mempool app
 python3 -m unittest discover -s tests
 ```
+
+Running a node on a VPS until you have hardware: [docs/VPS_NODE.md](docs/VPS_NODE.md).
 
 ### Data formats
 - Prices: `ts,open,high,low,close[,volume]` (unix seconds, hourly bars by default)
@@ -39,6 +42,7 @@ sats_engine/
   strategy/scalp.py      fee-gated Bollinger mean reversion in chop
   strategy/accumulator.py SatsRatchet: core/sleeve, tickets, halt, smart DCA
   data/explorer.py       mempool.space-compatible client (self-host friendly)
+  data/rpc.py            direct Knots/Core JSON-RPC backend (pruned-node compatible)
   data/loaders.py        CSV IO
   data/synthetic.py      regime-switching market for tests/demo
   backtest.py            run + score vs HODL/DCA in BTC
