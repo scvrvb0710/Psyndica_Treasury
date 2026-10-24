@@ -8,9 +8,10 @@
 
 ## Decisions requested
 1. **Adopt this roadmap** as the council's sequence of work.
-2. **Confirm reserve custody.** Who holds the treasury BTC keys today,
-   and how? This is not recorded anywhere, and it is the highest-risk
-   unknown.
+2. ~~Confirm reserve custody.~~ **Decided by SUN (founding phase):** SUN
+   generates and holds the reserve keys and accumulates the reserve until
+   the council is constituted (12/12 seats). The reserve then moves to a
+   council multisig by a `council_change`-level decision (see Phase 0).
 3. **Nominate operators** for the 11 open seats, so the founding phase can
    end.
 
@@ -36,7 +37,7 @@ Three tests, applied in order:
 
 | Layer | Depends on | If it fails | Reversible? | Exit plan |
 |---|---|---|---|---|
-| Reserve keys | **unconfirmed** | stack lost | **no** | Phase 0: multisig across people and places |
+| Reserve keys | SUN, founding phase (2-of-3 planned) | stack lost | **no** | Phase 0: SUN 2-of-3 now; council multisig once seats are filled |
 | Governance | signed mandates built; genesis not yet created | decisions forgeable or ignored | partly | Phase 0: genesis, 12 seats, pinned hash; Phase 4: anchored on Cardano |
 | Verification | VPS provider (pruned Knots, planned) | blind to chain data | yes | Phase 1: own hardware, second node |
 | Chain data history | VPS local CSV, with a Cloudflare D1 replica | gap in history | yes | already local-first; Phase 1 adds a second replica we own |
@@ -52,7 +53,9 @@ Three tests, applied in order:
 
 | Work | Owner | Done when |
 |---|---|---|
-| Reserve into multisig (e.g. 2-of-3 or 3-of-5) with keys held by different humans in different places; seeds on metal | LOVE + WATER, SUN signs | recovery drill passes without exposing a seed |
+| Founding custody: SUN's 2-of-3 (three vendors; SUN holds two keys in separate places, one trusted human holds the third); seeds on metal, descriptor backed up at every key site | SUN | test spends with A+B and B+C, and a restore drill, pass before the reserve moves in |
+| Accumulate: buy BTC, then withdraw to the multisig on a schedule, verifying each address on a signer's screen; exchange balances kept near zero; never routed through the swarm account | SUN | reserve balance in BTC reported to the council monthly |
+| Transition: once 12/12 seats are filled, move the reserve to a council multisig (e.g. 3-of-5 across operators in different places) | LOVE + WATER propose, council votes (9 of 12) | funds move only after the new wallet passes the same test spends and drill |
 | Create the governance genesis on a hardware key; publish its hash | SUN | every operator has the hash recorded outside the repo |
 | Seat all 12 operators, each with a hardware seat key | SUN (founding phase) | `gov status` shows 12/12, founding phase over |
 | GitHub: protected `main`, signed commits required, secret scanning and push protection | STONE | settings verified by a second operator |
@@ -123,8 +126,9 @@ INSECT.
 ## How we measure it
 Reviewed quarterly by the council:
 
-- **Irreversible single points of failure:** target zero. Today: reserve
-  custody is unconfirmed.
+- **Irreversible single points of failure:** target zero. During the
+  founding phase the reserve depends on SUN by decision. That ends at the
+  transition.
 - **Critical layers with a tested exit plan:** count from the register
   above.
 - **Recovery drills passed:** reserve, collector restore, forge restore.
