@@ -33,6 +33,10 @@ and no open port, and the node's RPC stays on localhost.
   Rotate the secret (below) and delete rows received after the leak.
 
 ## Deploy (from your own machine, not the VPS)
+One command: `WRANGLER_VERSION=<exact version> ./deploy.sh`. It logs in,
+deploys, generates the secret, and prints the line for the VPS env file.
+Pass `ROTATE=1` to replace the secret. The manual steps are below.
+
 Requires Node 18+. Pin wrangler to an exact version that has been out for at
 least two weeks, per SECURITY.md.
 
@@ -67,6 +71,7 @@ python3 -m sats_engine backtest --prices btc_1h.csv --onchain snaps.csv
 ```
 
 ## Rotate the secret
+`WRANGLER_VERSION=<exact version> ROTATE=1 ./deploy.sh`, then update the VPS. Manually:
 1. Generate a new secret, then `wrangler secret put COLLECTOR_SECRET`.
 2. Update `/etc/sats-collector.env` on the VPS and run `systemctl restart sats-scan`.
 
