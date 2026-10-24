@@ -1,4 +1,4 @@
-"""Command line: demo | backtest | scan | collector-export | gov | validate | feed.
+"""Command line: demo | backtest | scan | collector-export | gov | validate | feed | terminal.
 
 Nothing here places orders. `scan` is shadow mode: it reads the block
 explorer, scores on-chain pressure, and logs the reading with a trace_id.
@@ -14,6 +14,7 @@ from dataclasses import asdict
 
 from . import backtest
 from . import feed as signal_feed
+from . import terminal
 from . import validate as wf
 from .config import DCAParams, EngineConfig
 from .data import synthetic
@@ -305,6 +306,13 @@ def main(argv=None) -> int:
     p = fsub.add_parser("verify", help="check the hash chain of a feed file")
     p.add_argument("path")
     p.set_defaults(fn=cmd_feed_verify)
+
+    p = sub.add_parser("terminal", help="live read-only dashboard of a feed file")
+    p.add_argument("path", nargs="?", default="feed.jsonl")
+    p.add_argument("--follow", "-f", action="store_true", help="redraw as new records arrive")
+    p.add_argument("--interval", type=float, default=2.0)
+    p.add_argument("--no-verify", action="store_true", help="skip the chain check at startup")
+    p.set_defaults(fn=lambda a: terminal.run(a.path, a.follow, a.interval, not a.no_verify))
 
     gov_cli.register(sub)
 

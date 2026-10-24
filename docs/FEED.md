@@ -48,6 +48,9 @@ python3 -m sats_engine feed run [--base 15m] --prices btc_1h.csv --onchain snaps
 
 # 3. Anyone can check nothing was altered or dropped
 python3 -m sats_engine feed verify feed.jsonl
+
+# 4. Watch it live (read-only; checks the chain at startup)
+python3 -m sats_engine terminal feed.jsonl --follow
 ```
 
 For live use, keep appending closed hourly bars to the prices CSV and run

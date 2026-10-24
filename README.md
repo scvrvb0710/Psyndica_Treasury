@@ -19,6 +19,7 @@ python3 -m sats_engine backtest --prices btc_1h.csv --onchain snaps.csv
 python3 -m sats_engine validate --prices btc_1h.csv --onchain snaps.csv   # walk-forward verdict
 python3 -m sats_engine validate --base 15m --prices btc_15m.csv            # 15m scalp / 4h swing / 1d filter
 python3 -m sats_engine feed run --prices btc_1h.csv --onchain snaps.csv --validation validation.json
+python3 -m sats_engine terminal feed.jsonl -f                # live dashboard (read-only, works over SSH)
 python3 -m sats_engine scan                     # one block-explorer reading
 python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots node (pruned OK)
 python3 -m sats_engine scan --watch --save snaps.csv \
@@ -58,8 +59,9 @@ sats_engine/
   backtest.py            run + score vs HODL/DCA in BTC (optional scored window)
   validate.py            walk-forward falsification test -> PASS / FAIL / INSUFFICIENT
   feed.py                the one algorithm: every layer -> one hash-chained record per bar
+  terminal.py            live ANSI dashboard of the feed (no deps, NO_COLOR aware)
   data/collector.py      signed push/export client for the Cloudflare collector
   governance/            signed mandates: rules (Hashira 12), ledger replay, ssh signature checks, gov CLI
-  cli.py                 demo | backtest | validate | feed | scan | collector-export | gov
+  cli.py                 demo | backtest | validate | feed | terminal | scan | collector-export | gov
 collector/               Cloudflare Worker + D1 (push-only, HMAC-signed, no npm deps)
 ```
