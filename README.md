@@ -27,6 +27,7 @@ python3 -m unittest discover -s tests
 Running a node on a VPS until you have hardware: [docs/VPS_NODE.md](docs/VPS_NODE.md).
 Collecting snapshots in Cloudflare with stale-data alerts: [collector/README.md](collector/README.md).
 Council governance as signed mandates (Hashira 12): [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
+Sovereignty roadmap for the council: [SOVEREIGNTY.md](SOVEREIGNTY.md).
 
 ### Data formats
 - Prices: `ts,open,high,low,close[,volume]` (unix seconds, hourly bars by default)
