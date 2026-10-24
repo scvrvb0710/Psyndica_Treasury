@@ -103,6 +103,25 @@ from Tier 0.
 5. **Post-mortem.** Blameless, written. Every finding becomes a control in
    this document or a test.
 
+## Monthly connector and access review
+
+Go through claude.ai connectors, Claude plugins, GitHub apps, and OAuth
+grants on Google, Slack and GitHub. For each one:
+
+- [ ] **Used in the last 30 days?** No → disconnect or uninstall.
+- [ ] **Can it write, send, delete, share, pay, or run code/SQL?** Yes → set
+      those tools to "ask", or disconnect if not needed weekly.
+- [ ] **Does it reach a recovery path** (email, domain, DNS, password
+      manager)? Yes → disconnect from agents entirely.
+- [ ] **Does it reach money** (payments, exchanges, wallets)? Yes → never
+      connected to an agent outside the designated swarm wallet.
+- [ ] **Shows "needs reconnect"?** Don't re-authorize to clear the warning.
+      Uninstall unless there's a current job for it.
+- [ ] **Unknown or unrecognised?** Revoke first, ask questions after.
+
+Record the date and the changes in the private ops log, not in this repo.
+An inventory of connected services is a map for attackers.
+
 ## Review cadence
 - **Monthly:** access list, connected apps and agent connectors, patch
   status, backup restore test.
