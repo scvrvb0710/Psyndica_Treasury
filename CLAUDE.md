@@ -37,6 +37,11 @@ Ownership is a stack, not a slogan. Code here grows the BTC reserve or protects 
 - Never present a backtest, synthetic run, or shadow result as a guarantee.
 - Steelman the red-team (Moon) objection before recommending any action.
 
+## Swarm account (docs/SWARM_ACCOUNT.md)
+- A Coinbase connector, if present, must be the separate swarm account only.
+  First session: read-only verification checklist, report to Sun, stop.
+  No orders, transfers, or withdrawals without Sun's written approval.
+
 ## Governance (full rules: docs/GOVERNANCE.md)
 - Seats are held by human operators. The LLM drafts and analyses for them; it
   never holds a seat key, never signs, never casts a vote.
