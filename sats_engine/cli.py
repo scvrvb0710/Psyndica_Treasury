@@ -1,4 +1,4 @@
-"""Command line: demo | backtest | scan | collector-export.
+"""Command line: demo | backtest | scan | collector-export | gov.
 
 Nothing here places orders. `scan` is shadow mode: it reads the block
 explorer, scores on-chain pressure, and logs the reading with a trace_id.
@@ -19,6 +19,10 @@ from .data.collector import CollectorClient, CollectorError, load_secret
 from .data.explorer import DEFAULT_BASE_URL, MempoolExplorer
 from .data.rpc import DEFAULT_COOKIE, DEFAULT_RPC_URL, BitcoinRPC, NodeExplorer, RPCError, http_transport, load_auth
 from .data.loaders import append_snapshot, load_bars, load_onchain
+from .governance import cli as gov_cli
+from .governance.ledger import LedgerError
+from .governance.ledger import load as load_ledger
+from .governance.sshsig import SignatureError, SSHVerifier
 from .models import new_trace_id
 from .signals.onchain import OnChainPressure
 
@@ -26,6 +30,15 @@ SHADOW_BANNER = "SHADOW MODE - research only, no orders are ever placed."
 
 
 def _config(args) -> EngineConfig:
+    if args.mandates:
+        # Governed run: every parameter comes from the signed ledger, no overrides.
+        if args.dca_usd or args.max_open is not None:
+            raise LedgerError("--dca-usd/--max-open can't override a governed config; propose a mandate")
+        state = load_ledger(args.mandates, SSHVerifier(), args.expect_genesis)
+        args.capital_usd = state.params["capital_usd"]
+        print(f"governed by ledger head {state.head[:16]} "
+              f"({sum(r.applied for r in state.records)} mandates applied, mode {state.mode})")
+        return state.config()
     cfg = EngineConfig()
     if args.dca_usd:
         cfg.dca = DCAParams(contribution_usd=args.dca_usd)
@@ -48,8 +61,9 @@ def _report(res: backtest.BacktestResult, show_trades: int) -> None:
 
 def cmd_demo(args) -> int:
     bars, snaps = synthetic.generate(n_bars=args.bars, seed=args.seed)
+    cfg = _config(args)
     initial_btc = args.capital_usd / bars[0].close
-    res = backtest.run(bars, snaps, _config(args), initial_btc=initial_btc)
+    res = backtest.run(bars, snaps, cfg, initial_btc=initial_btc)
     print("Synthetic market - proves the code runs, NOT that the strategy has edge.\n")
     _report(res, args.trades)
     return 0
@@ -58,8 +72,9 @@ def cmd_demo(args) -> int:
 def cmd_backtest(args) -> int:
     bars = load_bars(args.prices)
     snaps = load_onchain(args.onchain) if args.onchain else []
+    cfg = _config(args)
     initial_btc = args.capital_usd / bars[0].close
-    res = backtest.run(bars, snaps, _config(args), initial_btc=initial_btc)
+    res = backtest.run(bars, snaps, cfg, initial_btc=initial_btc)
     _report(res, args.trades)
     return 0
 
@@ -143,6 +158,8 @@ def main(argv=None) -> int:
         p.add_argument("--max-open", type=int, default=None,
                        help="override the 1-open-position doctrine cap (research only)")
         p.add_argument("--trades", type=int, default=10, help="print the last N tickets")
+        p.add_argument("--mandates", metavar="DIR", help="take every parameter from the signed ledger in DIR")
+        p.add_argument("--expect-genesis", help="pinned genesis hash for --mandates")
 
     p = sub.add_parser("demo", help="run on a synthetic market")
     common(p)
@@ -179,8 +196,16 @@ def main(argv=None) -> int:
     p.add_argument("--out", required=True)
     p.set_defaults(fn=cmd_collector_export)
 
+    gov_cli.register(sub)
+
     args = ap.parse_args(argv)
-    return args.fn(args)
+    if args.cmd == "gov":
+        return gov_cli.run(args)
+    try:
+        return args.fn(args)
+    except (LedgerError, SignatureError) as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

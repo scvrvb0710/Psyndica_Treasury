@@ -22,6 +22,11 @@ SECRET_PATTERNS = {
 
 BANNED_CALLS = {"eval", "exec"}
 BANNED_IMPORTS = {"pickle", "marshal", "subprocess"}
+# Reviewed exceptions (SECURITY.md): file -> imports it may use.
+ALLOWED_IMPORTS = {
+    # Mandate signature checks run OpenSSH ssh-keygen: fixed argv, no shell, timeout.
+    ENGINE / "governance" / "sshsig.py": {"subprocess"},
+}
 
 
 def tracked_files():
@@ -68,8 +73,16 @@ class EngineCodeHygiene(unittest.TestCase):
                     names = {(node.module or "").split(".")[0]}
                 else:
                     continue
-                for n in names & BANNED_IMPORTS:
+                for n in (names & BANNED_IMPORTS) - ALLOWED_IMPORTS.get(path, set()):
                     problems.append(f"{path.name}:{node.lineno} import {n}")
+        self.assertEqual(problems, [])
+
+    def test_no_shell_true_anywhere(self):
+        problems = []
+        for path in ENGINE.rglob("*.py"):
+            for node in ast.walk(ast.parse(path.read_text())):
+                if isinstance(node, ast.keyword) and node.arg == "shell":
+                    problems.append(f"{path.name}:{node.value.lineno} shell=")
         self.assertEqual(problems, [])
 
     def test_engine_has_no_third_party_dependencies(self):

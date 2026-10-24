@@ -37,6 +37,15 @@ Ownership is a stack, not a slogan. Code here grows the BTC reserve or protects 
 - Never present a backtest, synthetic run, or shadow result as a guarantee.
 - Steelman the red-team (Moon) objection before recommending any action.
 
+## Governance (full rules: docs/GOVERNANCE.md)
+- Seats are held by human operators. The LLM drafts and analyses for them; it
+  never holds a seat key, never signs, never casts a vote.
+- Proposals an LLM drafts must use `gov propose --llm` so they're flagged.
+- Parameters for governed runs come only from the signed ledger
+  (`--mandates`). Don't hand-edit files under `governance/`; use the `gov` CLI.
+- Never weaken the rules engine, signature checks, vote sealing, or class
+  gating without a `council_change`-level decision recorded by the operators.
+
 ## Security (full ethos: SECURITY.md)
 - Tiers are separate blast zones: Reserve (cold multisig) / Swarm (≤$500) /
   Spending (Fedi) / Infrastructure (no funds, no keys). Never bridge them.
@@ -52,4 +61,5 @@ result or test, label it an estimate.
 ## Dev
 - Stdlib-only Python 3.10+. Tests: `python3 -m unittest discover -s tests`
 - Collector Worker: dependency-free JS. Tests: `cd collector && npm test` (Node 22+)
-- Run: `python3 -m sats_engine demo | backtest | scan`
+- Run: `python3 -m sats_engine demo | backtest | scan | gov`
+- Governance tests need OpenSSH `ssh-keygen`; they skip without it.

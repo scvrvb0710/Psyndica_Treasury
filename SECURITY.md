@@ -58,7 +58,18 @@ from Tier 0.
   private keys, extended private keys, and common token formats. Enable
   GitHub secret scanning and push protection on the repo.
 - No `eval`, `exec`, `pickle` on untrusted data, or shell-string commands
-  in engine code.
+  in engine code. `shell=True` is banned everywhere.
+- **Reviewed exception:** `sats_engine/governance/sshsig.py` may run
+  OpenSSH `ssh-keygen` to verify mandate signatures, with a fixed argv, no
+  shell, input over stdin, and a timeout. Tests enforce that no other file
+  imports `subprocess`.
+
+## Governance keys
+- Council decisions are signed mandates ([docs/GOVERNANCE.md](docs/GOVERNANCE.md)).
+- Seat keys belong to human operators, ideally on hardware security keys
+  (`ed25519-sk`). Never give a seat key to an agent.
+- Every operator pins the genesis hash outside the repo and records the
+  `head` hash after each vote, to defend against truncation.
 
 ## Web surfaces (lessons from the PHP compromise)
 - Inventory every public site, plugin, and admin panel. Delete what isn't
