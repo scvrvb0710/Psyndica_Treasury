@@ -33,6 +33,7 @@ Collecting snapshots in Cloudflare with stale-data alerts: [collector/README.md]
 Council governance as signed mandates (Hashira 12): [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 Sovereignty roadmap for the council: [SOVEREIGNTY.md](SOVEREIGNTY.md).
 The unified signal feed (one hash-chained record per bar) and its consumer contract: [docs/FEED.md](docs/FEED.md).
+Psyndica system map (Collective ⇄ Labs, editable statuses): [map/](map/README.md).
 
 ### Data formats
 - Prices: `ts,open,high,low,close[,volume]` (unix seconds, hourly bars by default)

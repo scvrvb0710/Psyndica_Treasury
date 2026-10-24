@@ -1,0 +1,744 @@
+<title>Psyndica System Map</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Chakra+Petch:wght@400;500;600&family=Share+Tech+Mono&display=swap">
+<style>
+/* Layout: two system cores facing each other across a data bridge, departments
+   fanning out to the outer edges; one column on phones. Single dark world,
+   chosen deliberately to match the Psyndica plan art. */
+:root {
+  --bg: #06080b;
+  --panel: #0c1016;
+  --panel-2: #111722;
+  --line: #1c2533;
+  --fg: #dbe3ec;
+  --muted: #7d8ca0;
+  --pink: #f472b6;   /* Collective */
+  --cyan: #22d3ee;   /* Labs / ADA executes */
+  --gold: #f2c230;   /* BTC stores */
+  --violet: #a78bfa; /* NIGHT conceals / analysis */
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --idle: #64748b;
+  --display: "Michroma", "Eurostile", "Arial Black", sans-serif;
+  --body: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.035) 1px, transparent 1px);
+  background-size: 40px 40px;
+  min-height: 100%;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+.wrap { max-width: 1320px; margin: 0 auto; display: grid; gap: 22px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.brand h1 {
+  font-family: var(--display); font-size: clamp(26px, 4.4vw, 44px); letter-spacing: 0.06em;
+  margin: 0; line-height: 1; text-wrap: balance;
+}
+.brand .sub {
+  margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted);
+}
+.brand .sub .c { color: var(--pink); }
+.brand .sub .l { color: var(--cyan); }
+.layers { display: flex; flex-wrap: wrap; gap: 8px; }
+.layer {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  border: 1px solid var(--line); padding: 6px 10px; color: var(--muted);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.layer b { font-family: var(--display); font-weight: 400; letter-spacing: 0.08em; margin-right: 6px; }
+.layer.btc b { color: var(--gold); }
+.layer.ada b { color: var(--cyan); }
+.layer.night b { color: var(--violet); }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.filters .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.chip {
+  background: transparent; border: 1px solid var(--line); padding: 6px 12px; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--muted);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.chip[aria-pressed="true"] { color: var(--fg); border-color: var(--cyan); background: rgba(34, 211, 238, 0.07); }
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.s-done { background: var(--ok); }
+.s-progress { background: var(--warn); }
+.s-todo { background: var(--idle); }
+.s-draft { background: transparent; border: 1px dashed var(--violet); }
+
+/* Map */
+.map { position: relative; }
+.map svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.grid {
+  position: relative; display: grid; gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(110px, 0.6fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+.depts { display: grid; gap: 12px; min-width: 0; }
+.dept {
+  position: relative; width: 100%; text-align: left; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line); padding: 12px 14px;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center;
+  transition: border-color 0.2s, background 0.2s, opacity 0.2s;
+}
+.dept::before, .dept::after { content: ""; position: absolute; width: 8px; height: 8px; border-color: rgba(219, 227, 236, 0.25); border-style: solid; }
+.dept::before { top: -1px; left: -1px; border-width: 1px 0 0 1px; }
+.dept::after { bottom: -1px; right: -1px; border-width: 0 1px 1px 0; }
+.dept .glyph { font-family: var(--display); font-size: 11px; width: 28px; height: 28px; display: grid; place-items: center; border: 1px solid currentColor; opacity: 0.85; }
+.dept .name { font-family: var(--display); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; min-width: 0; }
+.dept .meta { grid-column: 2 / 4; font-family: var(--mono); font-size: 11.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.dept.collective { color: var(--pink); }
+.dept.labs { color: var(--cyan); }
+.dept.treasury { color: var(--gold); border-color: rgba(242, 194, 48, 0.35); }
+.dept .name, .dept .meta span { color: var(--fg); }
+.dept .meta span.m { color: var(--muted); }
+.dept:hover { background: var(--panel-2); border-color: currentColor; }
+.dept[aria-current="true"] { background: var(--panel-2); border-color: currentColor; box-shadow: 0 0 0 1px currentColor inset; }
+.dimmed { opacity: 0.28; }
+
+.core {
+  width: 200px; height: 200px; border-radius: 50%; cursor: pointer; position: relative;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.04), rgba(6, 8, 11, 0.9) 70%);
+  border: 2px solid; display: grid; place-content: center; justify-items: center; gap: 8px; text-align: center; padding: 18px;
+  transition: box-shadow 0.25s;
+}
+.core.collective { border-color: rgba(244, 114, 182, 0.55); color: var(--pink); }
+.core.labs { border-color: rgba(34, 211, 238, 0.55); color: var(--cyan); }
+.core:hover, .core[aria-current="true"] { box-shadow: 0 0 46px rgba(34, 211, 238, 0.16), 0 0 0 1px currentColor inset; }
+.core .ico { font-family: var(--display); font-size: 22px; }
+.core .t { font-family: var(--display); font-size: 12px; letter-spacing: 0.14em; color: var(--fg); line-height: 1.35; }
+.core .tag { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: var(--bg); border: 1px solid var(--line); padding: 2px 10px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; color: var(--muted); text-transform: uppercase; }
+
+.bridge {
+  cursor: pointer; background: transparent; border: 1px dashed var(--line); padding: 14px 8px;
+  display: grid; gap: 10px; justify-items: center; text-align: center;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.bridge:hover, .bridge[aria-current="true"] { border-color: var(--violet); }
+.bridge .fwd { color: var(--pink); }
+.bridge .back { color: var(--cyan); }
+.bridge .mid { font-family: var(--display); font-size: 11px; color: var(--fg); letter-spacing: 0.1em; }
+
+/* HUD */
+.hud { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.card { background: rgba(12, 16, 22, 0.86); border: 1px solid var(--line); padding: 18px; position: relative; min-width: 0; }
+.card::before { content: ""; position: absolute; top: -1px; left: -1px; width: 12px; height: 12px; border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan); }
+.eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; display: flex; align-items: center; gap: 10px; }
+.mission p { margin: 0; max-width: 68ch; color: #c3cdd8; }
+.bars { display: grid; gap: 14px; }
+.bar-row { display: grid; gap: 6px; }
+.bar-row .hd { display: flex; justify-content: space-between; gap: 10px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.bar { display: flex; height: 8px; background: var(--panel-2); overflow: hidden; }
+.bar i { display: block; height: 100%; }
+.bar .b-done { background: var(--ok); }
+.bar .b-progress { background: var(--warn); }
+.bar .b-todo { background: var(--idle); }
+.bar .b-draft { background: repeating-linear-gradient(90deg, rgba(167, 139, 250, 0.55) 0 4px, transparent 4px 8px); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.note { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: 0; }
+
+/* Panel */
+.scrim { position: fixed; inset: 0; background: rgba(2, 4, 7, 0.55); z-index: 40; }
+.panel {
+  position: fixed; z-index: 50; background: rgba(9, 12, 17, 0.97); border-left: 1px solid var(--line);
+  top: 0; bottom: 0; right: 0; width: min(460px, 100%);
+  padding: calc(22px + env(safe-area-inset-top, 0px)) max(22px, env(safe-area-inset-right, 0px)) calc(22px + env(safe-area-inset-bottom, 0px)) 22px;
+  overflow-y: auto; display: grid; align-content: start; gap: 20px;
+}
+.panel .ph { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.panel h2 { font-family: var(--display); font-size: 20px; letter-spacing: 0.05em; margin: 0; text-transform: uppercase; text-wrap: balance; }
+.panel .ref { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.close { background: transparent; border: 1px solid var(--line); width: 36px; height: 36px; cursor: pointer; font-family: var(--mono); font-size: 16px; flex: none; }
+.close:hover { border-color: var(--cyan); }
+.logic { border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; position: relative; }
+.logic::before { content: ""; position: absolute; top: -1px; left: -1px; width: 10px; height: 10px; border-top: 1px solid var(--cyan); border-left: 1px solid var(--cyan); }
+.logic p { margin: 0; color: #c9d3de; }
+.section-t { font-family: var(--mono); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+.fns { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fns li { border-left: 1px solid var(--line); padding: 2px 0 2px 12px; }
+.mechs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.mech { border: 1px solid var(--line); padding: 10px 12px; display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
+.mech .dot { transform: translateY(1px); }
+.mech .ml { font-weight: 600; }
+.mech .mn { grid-column: 2; color: var(--muted); font-size: 13.5px; }
+.mech .mrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; min-width: 0; }
+.mech .mw { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.status-select {
+  font-family: var(--mono); font-size: 12px; color: var(--fg); background: var(--panel-2);
+  border: 1px solid var(--line); padding: 5px 8px; cursor: pointer;
+}
+.status-select:hover:not(:disabled) { border-color: var(--cyan); }
+.status-select:disabled { cursor: default; opacity: 0.75; }
+.mech .ms { grid-column: 2; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+.ask { border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 10px; }
+.ask-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn {
+  cursor: pointer; border: 1px solid rgba(167, 139, 250, 0.45); background: rgba(167, 139, 250, 0.06); color: var(--violet);
+  padding: 11px 16px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+}
+.btn:hover:not(:disabled) { border-color: var(--violet); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn.ghost { color: var(--muted); border-color: var(--line); background: transparent; }
+.out { background: #05070a; border: 1px solid rgba(167, 139, 250, 0.3); padding: 14px; white-space: pre-wrap; font-size: 14px; color: #c9d3de; }
+.out .h { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; color: var(--violet); display: block; margin-bottom: 8px; text-transform: uppercase; }
+
+/* Phone */
+@media (max-width: 980px) {
+  .grid { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: 14px; }
+  .grid > .depts { width: 100%; }
+  .map svg.wires { display: none; }
+  .bridge { width: 100%; grid-auto-flow: row; }
+  .hud { grid-template-columns: minmax(0, 1fr); }
+  .core { width: 168px; height: 168px; }
+  .order-c-core { order: 1; } .order-c-depts { order: 2; } .order-bridge { order: 3; } .order-l-core { order: 4; } .order-l-depts { order: 5; }
+}
+@media (prefers-reduced-motion: reduce) { .pulse { display: none; } * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>PSYNDICA</h1>
+      <div class="sub"><span>Dual-core symbiosis</span><span>·</span><span class="c">Collective</span><span>⇄</span><span class="l">Labs</span></div>
+    </div>
+    <div class="layers" aria-label="Every chain has one job">
+      <span class="layer btc"><b>BTC</b>stores</span>
+      <span class="layer ada"><b>ADA</b>executes</span>
+      <span class="layer night"><b>NIGHT</b>conceals</span>
+    </div>
+  </header>
+
+  <div class="filters" role="group" aria-label="Highlight by status">
+    <span class="label">Highlight</span>
+    <button class="chip" data-filter="all" aria-pressed="true" id="f-all">All</button>
+    <button class="chip" data-filter="progress" aria-pressed="false" id="f-progress"><span class="dot s-progress"></span>In progress</button>
+    <button class="chip" data-filter="todo" aria-pressed="false" id="f-todo"><span class="dot s-todo"></span>To do</button>
+    <button class="chip" data-filter="draft" aria-pressed="false" id="f-draft"><span class="dot s-draft"></span>Draft</button>
+    <button class="chip" data-filter="done" aria-pressed="false" id="f-done"><span class="dot s-done"></span>Built</button>
+  </div>
+
+  <section class="map" aria-label="System map">
+    <svg class="wires" id="wires" aria-hidden="true"></svg>
+    <div class="grid" id="grid">
+      <div class="depts order-c-depts" id="c-depts"></div>
+      <button class="core collective order-c-core" id="core-collective" data-node="collective">
+        <span class="ico">◈</span><span class="t">PSYNDICA<br>COLLECTIVE</span><span class="tag">System core</span>
+      </button>
+      <button class="bridge order-bridge" id="bridge" data-node="bridge">
+        <span class="fwd">Collective demand →</span>
+        <span class="mid">DATA BRIDGE</span>
+        <span class="back">← Sovereign supply</span>
+      </button>
+      <button class="core labs order-l-core" id="core-labs" data-node="labs">
+        <span class="ico">⬡</span><span class="t">PSYNDICA<br>LABS</span><span class="tag">System core</span>
+      </button>
+      <div class="depts order-l-depts" id="l-depts"></div>
+    </div>
+  </section>
+
+  <section class="hud">
+    <div class="card mission">
+      <p class="eyebrow"><span class="dot" style="background: var(--cyan)"></span>The Yellow Paper mission</p>
+      <p>Psyndica is a sovereign creative framework built to dismantle extractive industry models. Transparent protocols replace opaque gatekeepers, so artists keep control and incentives stay aligned, economically and spiritually.</p>
+    </div>
+    <div class="card">
+      <p class="eyebrow">Mechanics status</p>
+      <div class="bars" id="bars"></div>
+      <div class="legend" style="margin-top: 12px">
+        <span><i class="dot s-done"></i>Built</span>
+        <span><i class="dot s-progress"></i>In progress</span>
+        <span><i class="dot s-todo"></i>To do</span>
+        <span><i class="dot s-draft"></i>Draft, awaiting team review</span>
+      </div>
+      <p class="note" style="margin-top: 10px">Counted from the mechanics on this map. Drafts are proposals, not commitments.</p>
+    </div>
+  </section>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="panel" id="panel" hidden aria-labelledby="p-title" role="dialog" aria-modal="true">
+  <div class="ph">
+    <div>
+      <h2 id="p-title"></h2>
+      <div class="ref" id="p-ref"></div>
+    </div>
+    <button class="close" id="p-close" aria-label="Close panel">✕</button>
+  </div>
+  <div class="logic"><p class="section-t" style="margin-bottom: 8px">Core logic</p><p id="p-desc"></p></div>
+  <div id="p-fns-wrap"><p class="section-t">Strategic functions</p><ul class="fns" id="p-fns"></ul></div>
+  <div id="p-mechs-wrap"><p class="section-t">Mechanics</p><p class="note" id="edit-note" style="margin: -4px 0 12px">Loading shared statuses…</p><ul class="mechs" id="p-mechs"></ul></div>
+  <div class="ask" id="ask" hidden>
+    <p class="section-t" style="margin: 0">Ask Claude</p>
+    <p class="note">Next steps, the red-team objection, and an open question for this part of the system. Runs on your own Claude account; you'll be asked to allow it the first time.</p>
+    <div class="ask-row">
+      <button class="btn" id="ask-btn">Analyse</button>
+      <button class="btn ghost" id="ask-stop" hidden>Stop</button>
+    </div>
+    <div class="out" id="ask-out" hidden><span class="h">Analysis</span><span id="ask-text"></span></div>
+  </div>
+</aside>
+
+<script>
+const STATUS_LABEL = { done: "Built", progress: "In progress", todo: "To do", draft: "Draft" };
+
+// Statuses: Treasury entries reflect the repo as of 2026-10-24. Every other
+// mechanic is a draft proposal for the team to confirm, change, or drop.
+const SYSTEM = {
+  collective: {
+    id: "collective", label: "Psyndica Collective", core: "Collective", glyph: "◈",
+    description: "The market and agency. A sovereign collective handling booking, label operations, and the artist market.",
+    details: ["Booking: decentralized touring", "Label: artist-owned releases", "Market: fair value exchange"],
+    children: [
+      { id: "booking", label: "Booking agency", glyph: "BK",
+        description: "Gets artists booked directly with venues. Terms are visible to both sides and the agency takes no cut of the fee.",
+        details: ["Direct-to-venue logistics", "Zero-commission model", "Transparent negotiation"],
+        mechanics: [
+          { label: "Offer → contract flow", status: "draft", note: "Venue offer, artist counter, signed terms. One record both sides can see." },
+          { label: "Deposit escrow", status: "draft", note: "Venue deposit held in a Cardano contract and released on show completion." },
+          { label: "Settlement in BTC / Lightning", status: "draft", note: "Artist chooses payout rail; fees shown up front." },
+          { label: "Dispute path", status: "draft", note: "Named arbiter and timeline before any deposit moves." },
+        ] },
+      { id: "label", label: "The label", glyph: "LB",
+        description: "Releases owned by the artists who make them. The label provides distribution and keeps the record of who owns what.",
+        details: ["NFT releases", "Streaming aggregation", "Legacy logs"],
+        mechanics: [
+          { label: "Rights registry", status: "draft", note: "Who owns each master and split, on Cardano; artists can verify their own entries." },
+          { label: "Royalty splits contract", status: "draft", note: "Incoming revenue divided automatically by registered splits." },
+          { label: "Streaming income import", status: "draft", note: "Pull distributor statements into the same ledger as on-chain sales." },
+          { label: "Legacy log", status: "draft", note: "Permanent archive of releases and credits." },
+        ] },
+      { id: "market", label: "The market", glyph: "MK",
+        description: "Direct-to-fan commerce and shared resources, with no platform taking a hidden margin.",
+        details: ["Community commerce", "Shared resources", "Direct-to-fan"],
+        mechanics: [
+          { label: "Self-hosted checkout", status: "draft", note: "BTCPay Server on Psyndica's own node: Lightning and on-chain, no card processor." },
+          { label: "Fan memberships", status: "draft", note: "Recurring support paid in sats, cancel any time." },
+          { label: "Shared resource pool", status: "draft", note: "Gear, studio time and services booked between members." },
+        ] },
+      { id: "identity", label: "Identity", glyph: "ID",
+        description: "How Psyndica looks and speaks, owned by the collective and not dependent on any platform's look.",
+        details: ["Visual sovereignty", "Cultural strategy", "The Psyndica aesthetic"],
+        mechanics: [
+          { label: "Design system", status: "draft", note: "Tokens, type, components and assets in one reference." },
+          { label: "Voice guide", status: "draft", note: "Status first, short, direct, checkable." },
+          { label: "Cultural strategy", status: "draft", note: "Who Psyndica is for, and which scenes and partners come first." },
+        ] },
+    ],
+  },
+  labs: {
+    id: "labs", label: "Psyndica Labs", core: "Labs", glyph: "⬡",
+    description: "The R&D engine. Builds the sovereign rails and the sound-money foundation that power the Collective.",
+    details: ["Treasury: Bitcoin-centric wealth preservation", "Logic: Cardano-powered rights management", "Scaling: high-throughput L2 micropayments"],
+    children: [
+      { id: "treasury", label: "Treasury", glyph: "₿", treasury: true,
+        description: "The reserve, measured in BTC. Protect the stack first: survival beats return, every time.",
+        details: ["BTC stores: reserve and settlement", "Signed council governance", "Shadow-mode research before any live trading"],
+        mechanics: [
+          { label: "Reserve custody", status: "progress", note: "Decided: SUN holds a 2-of-3 multisig during the founding phase. Key ceremony not done yet." },
+          { label: "Reserve accumulation", status: "todo", note: "Scheduled buys withdrawn to the multisig; balance reported to the council monthly, in BTC." },
+          { label: "Swarm account", status: "progress", note: "Separate Coinbase account, $500 cap, being set up. First connection is read-only verification." },
+          { label: "Sats Ratchet engine", status: "progress", note: "Built and tested in shadow mode. Walk-forward FAILS on synthetic data; needs real 15m bars." },
+          { label: "Signal feed and terminal", status: "done", note: "Hash-chained feed, 15m/4h/1d, live terminal. No live price source yet." },
+          { label: "Signed mandates", status: "progress", note: "Governance code built and tested. Genesis not created; 11 seats to fill." },
+          { label: "Own Knots node", status: "todo", note: "Pruned node on a VPS until hardware is affordable." },
+          { label: "Data collector", status: "progress", note: "Cloudflare database created; Worker not deployed." },
+        ] },
+      { id: "stack", label: "Hybrid stack", glyph: "HS",
+        description: "Every chain has one job. BTC stores, ADA executes, NIGHT conceals, and Hydra carries the volume.",
+        details: ["Cardano transparency", "Bitcoin permanence", "Hydra velocity"],
+        mechanics: [
+          { label: "Chain-role map", status: "draft", note: "Which asset and contract lives on which chain, and why." },
+          { label: "Hydra micropayment channel", status: "draft", note: "Per-stream and per-play payments without on-chain fees each time." },
+          { label: "Bridge policy", status: "draft", note: "When value may cross chains, how, and who signs." },
+        ] },
+      { id: "empowerment", label: "Empowerment", glyph: "EM",
+        description: "Funds and teaches artists so they can own their work and their rails.",
+        details: ["Artist grants", "Sovereignty education", "Resource allocation"],
+        mechanics: [
+          { label: "Grant program", status: "draft", note: "Grants approved as signed council mandates, paid from a set share of treasury income." },
+          { label: "Self-custody course", status: "draft", note: "Keys, wallets and backups for artists, taught in person." },
+          { label: "Allocation rules", status: "draft", note: "What share of revenue goes to reserve, grants and operations." },
+        ] },
+      { id: "tokenomics", label: "Tokenomics", glyph: "TK",
+        description: "Incentive design that rewards contribution and keeps value with artists. Any token offering needs counsel before design is final.",
+        details: ["Incentive alignment", "Sustainable models", "Wealth preservation"],
+        mechanics: [
+          { label: "Incentive model", status: "draft", note: "Who earns what for which contribution, written before any token exists." },
+          { label: "Legal review", status: "draft", note: "Securities counsel on any token or offering before launch." },
+          { label: "Treasury link", status: "draft", note: "How token activity does or doesn't touch the BTC reserve." },
+        ] },
+      { id: "protocol", label: "Protocol R&D", glyph: "PR",
+        description: "Open standards that let Psyndica's rails work with other projects and stay verifiable.",
+        details: ["Open standards", "Interoperability", "System integrity"],
+        mechanics: [
+          { label: "Open specs", status: "draft", note: "Publish the formats: rights records, split contracts, feed records." },
+          { label: "Integrity tests", status: "draft", note: "Hash chains and signatures checked in CI, as the treasury code already does." },
+        ] },
+    ],
+  },
+  bridge: {
+    id: "bridge", label: "Data bridge", core: "Both cores", glyph: "⇄",
+    description: "What each core gives the other. The Collective brings demand and revenue; Labs returns rails, tools and funding.",
+    details: ["Collective demand → Labs: requirements, revenue, feedback", "Labs → Collective: payment rails, rights tools, grants"],
+    mechanics: [
+      { label: "Revenue to reserve", status: "draft", note: "A set share of Collective income converted to BTC and swept to the reserve." },
+      { label: "Requirements intake", status: "draft", note: "Collective needs filed as proposals Labs can pick up." },
+      { label: "Rails handoff", status: "draft", note: "Labs ships checkout, splits and escrow for the Collective to run." },
+    ],
+  },
+};
+SYSTEM.collective.mechanics = []; SYSTEM.labs.mechanics = [];
+
+const NODES = {};
+for (const core of [SYSTEM.collective, SYSTEM.labs]) {
+  NODES[core.id] = core;
+  for (const d of core.children) { d.coreId = core.id; d.core = core.core; NODES[d.id] = d; }
+}
+NODES.bridge = SYSTEM.bridge;
+
+// Every mechanic gets a stable key; its default status is what this page
+// ships with. Shared edits live in the db as statuses/<key>.
+const MECHS = {};
+const slug = t => t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+for (const n of Object.values(NODES)) for (const m of n.mechanics || []) {
+  m.key = `${n.id}--${slug(m.label)}`; m.node = n.id; m.default = m.status; MECHS[m.key] = m;
+}
+const STATUSES = ["draft", "todo", "progress", "done"];
+let edits = {}; // key -> {status, by, at} from the shared db
+const eff = m => (STATUSES.includes(edits[m.key]?.status) ? edits[m.key].status : m.default);
+
+function rollup(mechs) {
+  const s = mechs.map(eff);
+  if (!s.length) return null;
+  if (s.every(x => x === "draft")) return "draft";
+  if (s.every(x => x === "done")) return "done";
+  if (s.every(x => x === "todo")) return "todo";
+  return "progress";
+}
+function counts(mechs) {
+  const c = { done: 0, progress: 0, todo: 0, draft: 0 };
+  for (const m of mechs) c[eff(m)]++;
+  return c;
+}
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) e.append(k);
+  return e;
+}
+
+// ---- map
+function renderDepts(core, mount) {
+  const nodes = core.children.map(d => {
+    const st = rollup(d.mechanics);
+    const c = counts(d.mechanics);
+    const kind = d.treasury ? "treasury" : core.id;
+    const btn = el("button", { class: `dept ${kind}`, id: `n-${d.id}`, "data-node": d.id, "data-status": d.mechanics.map(eff).join(" ") },
+      el("span", { class: "glyph", text: d.glyph }),
+      el("span", { class: "name", text: d.label }),
+      el("span", { class: `dot s-${st}`, title: STATUS_LABEL[st] }),
+    );
+    if (current?.id === d.id) btn.setAttribute("aria-current", "true");
+    const parts = [];
+    if (c.done) parts.push(`${c.done} built`);
+    if (c.progress) parts.push(`${c.progress} in progress`);
+    if (c.todo) parts.push(`${c.todo} to do`);
+    if (c.draft) parts.push(`${c.draft} draft`);
+    btn.append(el("span", { class: "meta" }, el("span", { class: "m", text: parts.join(" · ") })));
+    return btn;
+  });
+  mount.replaceChildren(...nodes);
+}
+let current = null;
+function renderMap() {
+  renderDepts(SYSTEM.collective, document.getElementById("c-depts"));
+  renderDepts(SYSTEM.labs, document.getElementById("l-depts"));
+}
+renderMap();
+
+// ---- wires (desktop only)
+const NS = "http://www.w3.org/2000/svg";
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function drawWires() {
+  const svg = document.getElementById("wires");
+  svg.replaceChildren();
+  if (getComputedStyle(svg).display === "none") return;
+  const box = svg.getBoundingClientRect();
+  const pt = (r, side) => ({ x: (side === "l" ? r.left : side === "r" ? r.right : r.left + r.width / 2) - box.left, y: r.top + r.height / 2 - box.top });
+  const line = (a, b, color) => {
+    const p = document.createElementNS(NS, "path");
+    const mx = (a.x + b.x) / 2;
+    p.setAttribute("d", `M ${a.x} ${a.y} C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`);
+    p.setAttribute("fill", "none"); p.setAttribute("stroke", color); p.setAttribute("stroke-width", "1");
+    svg.append(p);
+    return p;
+  };
+  const cc = document.getElementById("core-collective").getBoundingClientRect();
+  const lc = document.getElementById("core-labs").getBoundingClientRect();
+  for (const d of SYSTEM.collective.children) line(pt(cc, "l"), pt(document.getElementById(`n-${d.id}`).getBoundingClientRect(), "r"), "rgba(244,114,182,0.22)");
+  for (const d of SYSTEM.labs.children) {
+    line(pt(lc, "r"), pt(document.getElementById(`n-${d.id}`).getBoundingClientRect(), "l"), d.treasury ? "rgba(242,194,48,0.4)" : "rgba(34,211,238,0.22)");
+  }
+  const br = document.getElementById("bridge").getBoundingClientRect();
+  const fwd = line({ x: cc.right - box.left, y: pt(cc).y - 14 }, { x: lc.left - box.left, y: pt(lc).y - 14 }, "rgba(244,114,182,0.18)");
+  const back = line({ x: lc.left - box.left, y: pt(lc).y + 14 }, { x: cc.right - box.left, y: pt(cc).y + 14 }, "rgba(34,211,238,0.18)");
+  fwd.setAttribute("stroke-dasharray", "4 4"); back.setAttribute("stroke-dasharray", "4 4");
+  if (!reduceMotion) {
+    for (const [path, color] of [[fwd, "#f472b6"], [back, "#22d3ee"]]) {
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("r", "3"); c.setAttribute("fill", color); c.setAttribute("class", "pulse");
+      const a = document.createElementNS(NS, "animateMotion");
+      a.setAttribute("dur", "4s"); a.setAttribute("repeatCount", "indefinite"); a.setAttribute("path", path.getAttribute("d"));
+      c.append(a); svg.append(c);
+    }
+  }
+}
+new ResizeObserver(() => requestAnimationFrame(drawWires)).observe(document.getElementById("grid"));
+document.fonts?.ready.then(drawWires);
+
+// ---- HUD bars
+function renderBars() {
+  const rows = [
+    ["Collective", SYSTEM.collective.children.flatMap(d => d.mechanics)],
+    ["Labs", SYSTEM.labs.children.flatMap(d => d.mechanics)],
+    ["Data bridge", SYSTEM.bridge.mechanics],
+  ];
+  document.getElementById("bars").replaceChildren(...rows.map(([name, mechs]) => {
+    const c = counts(mechs), total = mechs.length;
+    const bar = el("div", { class: "bar", role: "img", "aria-label": `${name}: ${c.done} built, ${c.progress} in progress, ${c.todo} to do, ${c.draft} draft` });
+    for (const k of ["done", "progress", "todo", "draft"]) if (c[k]) bar.append(el("i", { class: `b-${k}`, style: `width:${(c[k] / total) * 100}%` }));
+    return el("div", { class: "bar-row" },
+      el("div", { class: "hd" }, el("span", { text: name }), el("span", { text: `${c.done + c.progress}/${total} started · ${c.draft} draft` })),
+      bar);
+  }));
+}
+renderBars();
+
+// ---- filters
+let filter = "all";
+function applyFilter() {
+  document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.filter === filter)));
+  document.querySelectorAll(".dept").forEach(d => {
+    d.classList.toggle("dimmed", filter !== "all" && !d.dataset.status.split(" ").includes(filter));
+  });
+}
+document.querySelectorAll(".chip").forEach(b => b.addEventListener("click", () => { filter = b.dataset.filter; applyFilter(); }));
+
+// ---- shared status edits
+let db = null, user = null, myId = null;
+let canWrite = false; // decided once db and user answer
+let writeRefused = false;
+const editNote = document.getElementById("edit-note");
+function setEditNote() {
+  if (!db) { editNote.textContent = "Statuses shown are the page defaults. Shared editing isn't available in this view."; return; }
+  editNote.textContent = canWrite && !writeRefused
+    ? "Changes are shared with everyone who can open this page, with your name and the time."
+    : "View only. Ask the page owner for Contributor access to change statuses.";
+}
+async function initShared() {
+  try { db = await window.claude?.use?.("db"); } catch { db = null; }
+  try { user = await window.claude?.use?.("user"); } catch { user = null; }
+  if (user) {
+    myId = await user.id();
+    const can = await user.can("data.write");
+    canWrite = can === null ? true : can; // null: platform said nothing; let a refused write decide
+  }
+  setEditNote();
+  if (!db) return;
+  db.collection("statuses").onSnapshot(snap => {
+    const next = {};
+    for (const d of snap.docs) if (MECHS[d.id]) next[d.id] = d.data();
+    edits = next;
+    renderAll();
+  }, () => { /* terminal: keep the last known statuses on screen */ });
+}
+initShared();
+
+async function changeStatus(m, status, sel) {
+  if (!db || eff(m) === status) return;
+  sel.disabled = true;
+  try {
+    await db.collection("statuses").doc(m.key).set({ status, by: myId, at: new Date().toISOString() });
+  } catch (e) {
+    if (e?.code === "invalid_argument") { writeRefused = true; setEditNote(); }
+    sel.value = eff(m);
+  } finally {
+    sel.disabled = !canWrite || writeRefused;
+  }
+}
+
+function renderAll() {
+  renderMap(); renderBars(); applyFilter();
+  if (current) renderPanelBody();
+  requestAnimationFrame(drawWires);
+}
+
+// ---- panel
+const panel = document.getElementById("panel"), scrim = document.getElementById("scrim");
+let lastFocus = null;
+const fmtWhen = iso => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch { return ""; } };
+async function renderPanelBody() {
+  const n = current;
+  const ref = document.getElementById("p-ref");
+  ref.replaceChildren(el("span", { text: n.core }));
+  const mechs = n.mechanics || [];
+  const st = rollup(mechs);
+  if (st) ref.append(el("span", { text: "·" }), el("span", { class: `dot s-${st}` }), el("span", { text: STATUS_LABEL[st] }));
+  const ms = document.getElementById("p-mechs");
+  const focusedKey = document.activeElement?.dataset?.mech;
+  document.getElementById("p-mechs-wrap").querySelector(".section-t").textContent = mechs.length ? "Mechanics" : "Departments";
+  editNote.hidden = !mechs.length;
+  if (!mechs.length) {
+    ms.replaceChildren(...(n.children || []).map(d => el("li", { class: "mech" },
+      el("span", { class: `dot s-${rollup(d.mechanics)}` }),
+      el("span", { class: "ml", text: d.label }),
+      el("span", { class: "ms", text: STATUS_LABEL[rollup(d.mechanics)] }),
+      el("span", { class: "mn", text: d.description }))));
+    return;
+  }
+  const ids = [...new Set(mechs.map(m => edits[m.key]?.by).filter(Boolean))];
+  const people = user && ids.length ? await user.profiles(ids) : {};
+  if (current !== n) return; // panel moved on while names resolved
+  ms.replaceChildren(...mechs.map(m => {
+    const s = eff(m);
+    const sel = el("select", { class: "status-select", id: `st-${m.key}`, "data-mech": m.key, "aria-label": `Status of ${m.label}` });
+    for (const k of STATUSES) {
+      const o = el("option", { value: k, text: STATUS_LABEL[k] });
+      if (k === s) o.selected = true;
+      sel.append(o);
+    }
+    sel.disabled = !db || !canWrite || writeRefused;
+    sel.addEventListener("change", () => changeStatus(m, sel.value, sel));
+    const e = edits[m.key];
+    let who = "";
+    if (e) {
+      const p = e.by && people[e.by];
+      const name = p?.isMe ? "you" : (p?.name || "someone");
+      who = `Changed by ${name}${e.at ? ", " + fmtWhen(e.at) : ""}${e.status !== m.default ? ` · was ${STATUS_LABEL[m.default]}` : ""}`;
+    }
+    return el("li", { class: "mech" },
+      el("span", { class: `dot s-${s}` }),
+      el("div", { class: "mrow" }, el("span", { class: "ml", text: m.label }), sel),
+      el("span", { class: "mn", text: m.note }),
+      ...(who ? [el("span", { class: "mw", text: who })] : []));
+  }));
+  if (focusedKey) document.getElementById(`st-${focusedKey}`)?.focus();
+}
+function openNode(id) {
+  const n = NODES[id];
+  if (!n) return;
+  current = n;
+  lastFocus = document.activeElement;
+  document.querySelectorAll("[data-node]").forEach(b => b.setAttribute("aria-current", String(b.dataset.node === id)));
+  document.getElementById("p-title").textContent = n.label;
+  document.getElementById("p-desc").textContent = n.description;
+  document.getElementById("p-fns").replaceChildren(...(n.details || []).map(t => el("li", { text: t })));
+  document.getElementById("p-fns-wrap").hidden = !(n.details || []).length;
+  renderPanelBody();
+  resetAsk();
+  panel.hidden = false; scrim.hidden = false;
+  document.getElementById("p-close").focus();
+  try { history.replaceState(null, "", "#" + id); } catch {}
+}
+function closePanel() {
+  panel.hidden = true; scrim.hidden = true; current = null;
+  abortAsk();
+  document.querySelectorAll("[data-node]").forEach(b => b.setAttribute("aria-current", "false"));
+  try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+  lastFocus?.focus?.();
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-node]");
+  if (b) openNode(b.dataset.node);
+});
+document.getElementById("p-close").addEventListener("click", closePanel);
+scrim.addEventListener("click", closePanel);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !panel.hidden) closePanel(); });
+
+// ---- Ask Claude (runs on the viewer's own account; no API key in this page)
+let sample = null, ctl = null, asked = false;
+const askBox = document.getElementById("ask"), askBtn = document.getElementById("ask-btn"),
+  stopBtn = document.getElementById("ask-stop"), out = document.getElementById("ask-out"), outText = document.getElementById("ask-text");
+const ERR = {
+  rate_limited: "Too many requests right now. Try again in a little while.",
+  session_expired: "Your Claude session expired. Sign in again, then retry.",
+  refused: "Claude declined this one. Try a different part of the map.",
+  empty_completion: "No answer came back. Try again.",
+  upstream_error: "The connection dropped. Try again.",
+};
+(async () => {
+  try { sample = await window.claude?.use?.("sample"); } catch { sample = null; }
+  if (sample) askBox.hidden = false;
+})();
+function resetAsk() { abortAsk(); asked = false; out.hidden = true; outText.textContent = ""; askBtn.textContent = "Analyse"; }
+function abortAsk() { ctl?.abort(); ctl = null; stopBtn.hidden = true; askBtn.disabled = false; }
+function promptFor(n) {
+  const mechs = (n.mechanics || []).map(m => `- ${m.label} [${STATUS_LABEL[eff(m)]}]: ${m.note}`).join("\n")
+    || (n.children || []).map(d => `- ${d.label} [${STATUS_LABEL[rollup(d.mechanics)]}]: ${d.description}`).join("\n");
+  return [
+    "You advise Psyndica: a sovereign creative collective (booking, label, market, identity) with an R&D arm, Labs (treasury, chain stack, grants, tokenomics, protocols).",
+    "Principles: BTC stores (reserve, measured in BTC), ADA executes (contracts, governance), NIGHT conceals (privacy). Protect the stack; survival beats return. Decisions go through a 12-seat council of human operators.",
+    "Voice: short, direct, checkable. No hype, no mystical language.",
+    "",
+    `Part of the system: ${n.label} (${n.core})`,
+    `Purpose: ${n.description}`,
+    `Functions: ${(n.details || []).join("; ")}`,
+    "Mechanics (status in brackets; 'Draft' means proposed, not agreed):",
+    mechs,
+    "",
+    "Reply in plain text, under 180 words, with exactly these four parts, each on its own line starting with the label:",
+    "Next step: the single most important thing to do next, and why, in two sentences.",
+    "Build next: three concrete mechanics, separated by semicolons.",
+    "Red team: the strongest objection a skeptic would raise.",
+    "Open question: one question the team must answer.",
+  ].join("\n");
+}
+askBtn.addEventListener("click", async () => {
+  if (!sample || !current) return;
+  ctl = new AbortController();
+  askBtn.disabled = true; stopBtn.hidden = false; out.hidden = false;
+  outText.textContent = "Thinking…";
+  try {
+    const { text, truncated } = await sample(promptFor(current), {
+      signal: ctl.signal, cache: asked ? false : true,
+      onText: ({ text }) => { outText.textContent = text; },
+    });
+    outText.textContent = text + (truncated ? "\n\n(Cut short.)" : "");
+    asked = true; askBtn.textContent = "Ask again";
+  } catch (e) {
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e?.code)) {
+      askBox.hidden = true; return;
+    }
+    if (e?.code === "cancelled") { outText.textContent = e.text || ""; out.hidden = !e.text; return; }
+    outText.textContent = (e?.text ? e.text + "\n\n" : "") + (ERR[e?.code] || ERR.upstream_error);
+  } finally {
+    ctl = null; askBtn.disabled = false; stopBtn.hidden = true;
+  }
+});
+stopBtn.addEventListener("click", () => ctl?.abort());
+
+// Deep link: #treasury, #booking, ... opens that node.
+if (location.hash && NODES[location.hash.slice(1)]) openNode(location.hash.slice(1));
+</script>
