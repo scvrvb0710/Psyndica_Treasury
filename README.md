@@ -16,6 +16,8 @@ Stdlib-only Python 3.10+. Nothing to install.
 python3 -m sats_engine demo                     # synthetic market, $500 stack
 python3 -m sats_engine demo --dca-usd 50        # with weekly smart DCA
 python3 -m sats_engine backtest --prices btc_1h.csv --onchain snaps.csv
+python3 -m sats_engine validate --prices btc_1h.csv --onchain snaps.csv   # walk-forward verdict
+python3 -m sats_engine feed run --prices btc_1h.csv --onchain snaps.csv --validation validation.json
 python3 -m sats_engine scan                     # one block-explorer reading
 python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots node (pruned OK)
 python3 -m sats_engine scan --watch --save snaps.csv \
@@ -28,6 +30,7 @@ Running a node on a VPS until you have hardware: [docs/VPS_NODE.md](docs/VPS_NOD
 Collecting snapshots in Cloudflare with stale-data alerts: [collector/README.md](collector/README.md).
 Council governance as signed mandates (Hashira 12): [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 Sovereignty roadmap for the council: [SOVEREIGNTY.md](SOVEREIGNTY.md).
+The unified signal feed (one hash-chained record per bar) and its consumer contract: [docs/FEED.md](docs/FEED.md).
 
 ### Data formats
 - Prices: `ts,open,high,low,close[,volume]` (unix seconds, hourly bars by default)
@@ -49,9 +52,11 @@ sats_engine/
   data/rpc.py            direct Knots/Core JSON-RPC backend (pruned-node compatible)
   data/loaders.py        CSV IO
   data/synthetic.py      regime-switching market for tests/demo
-  backtest.py            run + score vs HODL/DCA in BTC
+  backtest.py            run + score vs HODL/DCA in BTC (optional scored window)
+  validate.py            walk-forward falsification test -> PASS / FAIL / INSUFFICIENT
+  feed.py                the one algorithm: every layer -> one hash-chained record per bar
   data/collector.py      signed push/export client for the Cloudflare collector
   governance/            signed mandates: rules (Hashira 12), ledger replay, ssh signature checks, gov CLI
-  cli.py                 demo | backtest | scan | collector-export | gov
+  cli.py                 demo | backtest | validate | feed | scan | collector-export | gov
 collector/               Cloudflare Worker + D1 (push-only, HMAC-signed, no npm deps)
 ```

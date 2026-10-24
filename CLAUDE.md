@@ -61,5 +61,7 @@ result or test, label it an estimate.
 ## Dev
 - Stdlib-only Python 3.10+. Tests: `python3 -m unittest discover -s tests`
 - Collector Worker: dependency-free JS. Tests: `cd collector && npm test` (Node 22+)
-- Run: `python3 -m sats_engine demo | backtest | scan | gov`
+- Run: `python3 -m sats_engine demo | backtest | validate | feed | scan | gov`
+- The feed (docs/FEED.md) is the internal data contract: signals are `would_*`
+  only, never orders. Changing the record shape means bumping schema_version.
 - Governance tests need OpenSSH `ssh-keygen`; they skip without it.

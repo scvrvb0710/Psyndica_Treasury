@@ -81,7 +81,8 @@ class SatsRatchet:
 
     # --------------------------------------------------------------- per bar
 
-    def on_bar(self, bar: Bar, snaps: Optional[list[OnChainSnapshot]] = None) -> None:
+    def on_bar(self, bar: Bar, snaps: Optional[list[OnChainSnapshot]] = None) -> list[TicketPlan]:
+        """Advance one bar. Returns the signals that fired (taken or not)."""
         for snap in snaps or ():
             self.pressure.update(snap)
         pressure = self.pressure.last
@@ -97,6 +98,7 @@ class SatsRatchet:
 
         self._dca(bar, pressure)
         self._bar_index += 1
+        return [p for p in plans if p is not None]
 
     def _check_halt(self, bar: Bar) -> None:
         # Valued at the close: a conservative mark that ignores intrabar recovery.

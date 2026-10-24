@@ -1,4 +1,4 @@
-"""Command line: demo | backtest | scan | collector-export | gov.
+"""Command line: demo | backtest | scan | collector-export | gov | validate | feed.
 
 Nothing here places orders. `scan` is shadow mode: it reads the block
 explorer, scores on-chain pressure, and logs the reading with a trace_id.
@@ -13,6 +13,8 @@ import time
 from dataclasses import asdict
 
 from . import backtest
+from . import feed as signal_feed
+from . import validate as wf
 from .config import DCAParams, EngineConfig
 from .data import synthetic
 from .data.collector import CollectorClient, CollectorError, load_secret
@@ -147,6 +149,62 @@ def cmd_collector_export(args) -> int:
     return 0
 
 
+def _governed(args):
+    """(config, capital_usd, governance state or None) for validate/feed."""
+    if args.mandates:
+        state = load_ledger(args.mandates, SSHVerifier(), args.expect_genesis)
+        return state.config(), state.params["capital_usd"], state
+    return EngineConfig(), args.capital_usd, None
+
+
+def cmd_validate(args) -> int:
+    bars = load_bars(args.prices)
+    snaps = load_onchain(args.onchain) if args.onchain else []
+    cfg, _, _ = _governed(args)
+    report = wf.walk_forward(bars, snaps, cfg)
+    with open(args.out, "w") as f:
+        json.dump(report, f, indent=2)
+    print(SHADOW_BANNER)
+    print(f"verdict: {report['verdict']} - {report['why']}")
+    for fold in report["folds"]:
+        print(f"  test {fold['test_from']}..{fold['test_to']}  train {fold['train_edge'] * 100:+.2f}%  "
+              f"test {fold['test_edge'] * 100:+.2f}%  trips {fold['test_trips']}")
+    print(f"wrote {args.out}")
+    return 0
+
+
+def _feed_once(args) -> int:
+    bars = load_bars(args.prices)
+    if not bars:
+        raise signal_feed.FeedError(f"no bars in {args.prices}")
+    snaps = load_onchain(args.onchain) if args.onchain else []
+    cfg, capital, gov = _governed(args)
+    validation = json.loads(open(args.validation).read()) if args.validation else None
+    feed = signal_feed.SignalFeed(cfg, capital / bars[0].close, gov, validation)
+    writer = signal_feed.FeedWriter(args.out)
+    return sum(writer.write(body) is not None for body in signal_feed.run(feed, bars, snaps))
+
+
+def cmd_feed_run(args) -> int:
+    print(SHADOW_BANNER, file=sys.stderr)
+    while True:
+        n = _feed_once(args)
+        print(f"appended {n} record(s) to {args.out}", file=sys.stderr)
+        if not args.follow:
+            return 0
+        time.sleep(args.interval)
+
+
+def cmd_feed_verify(args) -> int:
+    try:
+        n = signal_feed.verify(args.path)
+    except signal_feed.FeedError as e:
+        print(f"BROKEN: {e}", file=sys.stderr)
+        return 1
+    print(f"ok: {n} records, chain intact")
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="sats_engine", description=SHADOW_BANNER)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -196,6 +254,33 @@ def main(argv=None) -> int:
     p.add_argument("--out", required=True)
     p.set_defaults(fn=cmd_collector_export)
 
+    def governed(p):
+        p.add_argument("--mandates", metavar="DIR", help="take parameters from the signed ledger in DIR")
+        p.add_argument("--expect-genesis", help="pinned genesis hash for --mandates")
+        p.add_argument("--capital-usd", type=float, default=500.0, help="ignored with --mandates")
+
+    p = sub.add_parser("validate", help="walk-forward test: does the edge survive unseen data?")
+    governed(p)
+    p.add_argument("--prices", required=True)
+    p.add_argument("--onchain")
+    p.add_argument("--out", default="validation.json")
+    p.set_defaults(fn=cmd_validate)
+
+    feed_p = sub.add_parser("feed", help="the unified signal feed (one hash-chained record per bar)")
+    fsub = feed_p.add_subparsers(dest="feed_cmd", required=True)
+    p = fsub.add_parser("run", help="append records for any new bars")
+    governed(p)
+    p.add_argument("--prices", required=True, help="hourly bars CSV (keep appending to it for live use)")
+    p.add_argument("--onchain", help="snapshots CSV, e.g. from scan --save")
+    p.add_argument("--validation", help="report from `validate`")
+    p.add_argument("--out", default="feed.jsonl")
+    p.add_argument("--follow", action="store_true", help="keep running, picking up new bars")
+    p.add_argument("--interval", type=float, default=60.0)
+    p.set_defaults(fn=cmd_feed_run)
+    p = fsub.add_parser("verify", help="check the hash chain of a feed file")
+    p.add_argument("path")
+    p.set_defaults(fn=cmd_feed_verify)
+
     gov_cli.register(sub)
 
     args = ap.parse_args(argv)
@@ -203,7 +288,7 @@ def main(argv=None) -> int:
         return gov_cli.run(args)
     try:
         return args.fn(args)
-    except (LedgerError, SignatureError) as e:
+    except (LedgerError, SignatureError, signal_feed.FeedError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 

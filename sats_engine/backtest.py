@@ -36,11 +36,18 @@ class BacktestResult:
     halted: bool
     max_drawdown: float  # of stack vs. benchmark, peak to trough
     engine: SatsRatchet
+    base_rel: float = 1.0  # stack/benchmark when scoring began (see run(score_from=))
 
     @property
     def edge_vs_hodl(self) -> float:
-        """Fractional BTC advantage over the HODL/DCA benchmark."""
-        return self.final_stack_btc / self.hodl_btc - 1 if self.hodl_btc else 0.0
+        """Fractional BTC advantage over the HODL/DCA benchmark over the scored window."""
+        if not self.hodl_btc:
+            return 0.0
+        return (self.final_stack_btc / self.hodl_btc) / self.base_rel - 1
+
+    @property
+    def trips(self) -> int:
+        return sum(s.trips for s in self.legs.values())
 
     def summary(self) -> str:
         lines = [
@@ -77,17 +84,26 @@ def run(
     snaps: Optional[Sequence[OnChainSnapshot]] = None,
     config: Optional[EngineConfig] = None,
     initial_btc: float = 1.0,
+    score_from: int = 0,
 ) -> BacktestResult:
+    """Run the engine over `bars`. Bars before `score_from` only warm up the
+    indicators: edge, drawdown, and round-trip stats cover the rest."""
     if not bars:
         raise ValueError("no bars to backtest")
+    if not 0 <= score_from < len(bars):
+        raise ValueError("score_from must index into bars")
     cfg = config or EngineConfig()
     engine = SatsRatchet(cfg, initial_btc)
     snaps = sorted(snaps or (), key=lambda s: s.ts)
 
     hodl = initial_btc
     j = 0
+    base_rel = 1.0
     peak_rel, max_dd = 1.0, 0.0
     for i, bar in enumerate(bars):
+        if i == score_from:
+            base_rel = engine.stack_btc(bars[i - 1].close) / hodl if i else 1.0
+            peak_rel = base_rel
         # Feed only snapshots observed by this bar's close - no lookahead.
         bar_close_ts = bar.ts + cfg.bar_seconds
         batch = []
@@ -104,21 +120,24 @@ def run(
         # Drawdown is measured relative to the benchmark so contributions and
         # price moves don't masquerade as strategy gains or losses.
         rel = stack / hodl
-        peak_rel = max(peak_rel, rel)
-        max_dd = max(max_dd, 1 - rel / peak_rel)
+        if i >= score_from:
+            peak_rel = max(peak_rel, rel)
+            max_dd = max(max_dd, 1 - rel / peak_rel)
 
     last = bars[-1].close
+    scored = [t for t in engine.closed if t.opened_ts >= bars[score_from].ts]
     exits: dict[str, int] = {}
-    for t in engine.closed:
+    for t in scored:
         exits[t.exit_reason] = exits.get(t.exit_reason, 0) + 1
     return BacktestResult(
         initial_btc=initial_btc,
         final_stack_btc=engine.stack_btc(last),
         hodl_btc=hodl,
         fees_usd=sum(f.fee_usd for f in engine.fills),
-        legs=_leg_stats(engine.closed),
+        legs=_leg_stats(scored),
         exits=exits,
         halted=engine.halted,
         max_drawdown=max_dd,
         engine=engine,
+        base_rel=base_rel,
     )

@@ -79,7 +79,8 @@ The case against, which has to be answered before any vote:
 - **Tax drag.** Every sell is a taxable event. Gains measured in BTC can
   still be losses after tax in USD.
 
-**Falsification test (shadow mode):** run on at least 2 years of real hourly
+**Falsification test (shadow mode)**, implemented as
+`python3 -m sats_engine validate` (see docs/FEED.md): run on at least 2 years of real hourly
 bars plus logged on-chain snapshots, walk-forward, at the venue's real fees.
 If edge vs. HODL after fees is ≤ 0 or below the edge floor, or fewer than
 30 round trips qualify, the thesis is unproven. Then park it and stay with
