@@ -20,7 +20,8 @@ from .data import synthetic
 from .data.collector import CollectorClient, CollectorError, load_secret
 from .data.explorer import DEFAULT_BASE_URL, MempoolExplorer
 from .data.rpc import DEFAULT_COOKIE, DEFAULT_RPC_URL, BitcoinRPC, NodeExplorer, RPCError, http_transport, load_auth
-from .data.loaders import append_snapshot, load_bars, load_onchain
+from .data.loaders import DataError, append_snapshot, check_spacing, load_bars, load_onchain
+from .timeframes import tf_name, tf_seconds
 from .governance import cli as gov_cli
 from .governance.ledger import LedgerError
 from .governance.ledger import load as load_ledger
@@ -29,6 +30,19 @@ from .models import new_trace_id
 from .signals.onchain import OnChainPressure
 
 SHADOW_BANNER = "SHADOW MODE - research only, no orders are ever placed."
+
+
+def _apply_base(cfg: EngineConfig, args, governed: bool) -> EngineConfig:
+    """--base picks the bar size: 1h runs the single-timeframe engine, 15m the
+    15m/4h/1d one. Under a ledger the bar size is governed (engine.bar_seconds)."""
+    if args.base is None:
+        return cfg
+    want = tf_seconds(args.base)
+    if governed and want != cfg.bar_seconds:
+        raise LedgerError(f"ledger sets the base timeframe to {tf_name(cfg.bar_seconds)}; "
+                          f"changing it needs a mandate (engine.bar_seconds)")
+    cfg.bar_seconds = want
+    return cfg
 
 
 def _config(args) -> EngineConfig:
@@ -40,8 +54,8 @@ def _config(args) -> EngineConfig:
         args.capital_usd = state.params["capital_usd"]
         print(f"governed by ledger head {state.head[:16]} "
               f"({sum(r.applied for r in state.records)} mandates applied, mode {state.mode})")
-        return state.config()
-    cfg = EngineConfig()
+        return _apply_base(state.config(), args, governed=True)
+    cfg = _apply_base(EngineConfig(), args, governed=False)
     if args.dca_usd:
         cfg.dca = DCAParams(contribution_usd=args.dca_usd)
     if args.max_open is not None:
@@ -62,8 +76,9 @@ def _report(res: backtest.BacktestResult, show_trades: int) -> None:
 
 
 def cmd_demo(args) -> int:
-    bars, snaps = synthetic.generate(n_bars=args.bars, seed=args.seed)
     cfg = _config(args)
+    n_bars = args.bars or 365 * 24 * 3600 // cfg.bar_seconds
+    bars, snaps = synthetic.generate(n_bars=n_bars, seed=args.seed, bar_seconds=cfg.bar_seconds)
     initial_btc = args.capital_usd / bars[0].close
     res = backtest.run(bars, snaps, cfg, initial_btc=initial_btc)
     print("Synthetic market - proves the code runs, NOT that the strategy has edge.\n")
@@ -72,9 +87,8 @@ def cmd_demo(args) -> int:
 
 
 def cmd_backtest(args) -> int:
-    bars = load_bars(args.prices)
-    snaps = load_onchain(args.onchain) if args.onchain else []
     cfg = _config(args)
+    bars, snaps = _load_checked(args, cfg)
     initial_btc = args.capital_usd / bars[0].close
     res = backtest.run(bars, snaps, cfg, initial_btc=initial_btc)
     _report(res, args.trades)
@@ -153,18 +167,28 @@ def _governed(args):
     """(config, capital_usd, governance state or None) for validate/feed."""
     if args.mandates:
         state = load_ledger(args.mandates, SSHVerifier(), args.expect_genesis)
-        return state.config(), state.params["capital_usd"], state
-    return EngineConfig(), args.capital_usd, None
+        return _apply_base(state.config(), args, governed=True), state.params["capital_usd"], state
+    return _apply_base(EngineConfig(), args, governed=False), args.capital_usd, None
+
+
+def _load_checked(args, cfg: EngineConfig):
+    bars = load_bars(args.prices)
+    if not bars:
+        raise DataError(f"no bars in {args.prices}")
+    check_spacing(bars, cfg.bar_seconds)
+    snaps = load_onchain(args.onchain) if args.onchain else []
+    return bars, snaps
 
 
 def cmd_validate(args) -> int:
-    bars = load_bars(args.prices)
-    snaps = load_onchain(args.onchain) if args.onchain else []
     cfg, _, _ = _governed(args)
+    bars, snaps = _load_checked(args, cfg)
     report = wf.walk_forward(bars, snaps, cfg)
     with open(args.out, "w") as f:
         json.dump(report, f, indent=2)
     print(SHADOW_BANNER)
+    print(f"base timeframe {report['method']['base_timeframe']}, "
+          f"warm-up {report['method']['warmup_hours']}h")
     print(f"verdict: {report['verdict']} - {report['why']}")
     for fold in report["folds"]:
         print(f"  test {fold['test_from']}..{fold['test_to']}  train {fold['train_edge'] * 100:+.2f}%  "
@@ -174,11 +198,8 @@ def cmd_validate(args) -> int:
 
 
 def _feed_once(args) -> int:
-    bars = load_bars(args.prices)
-    if not bars:
-        raise signal_feed.FeedError(f"no bars in {args.prices}")
-    snaps = load_onchain(args.onchain) if args.onchain else []
     cfg, capital, gov = _governed(args)
+    bars, snaps = _load_checked(args, cfg)
     validation = json.loads(open(args.validation).read()) if args.validation else None
     feed = signal_feed.SignalFeed(cfg, capital / bars[0].close, gov, validation)
     writer = signal_feed.FeedWriter(args.out)
@@ -218,10 +239,12 @@ def main(argv=None) -> int:
         p.add_argument("--trades", type=int, default=10, help="print the last N tickets")
         p.add_argument("--mandates", metavar="DIR", help="take every parameter from the signed ledger in DIR")
         p.add_argument("--expect-genesis", help="pinned genesis hash for --mandates")
+        p.add_argument("--base", choices=["1h", "15m"],
+                       help="bar size: 1h single-timeframe, 15m = 15m scalp / 4h swing / 1d trend filter")
 
     p = sub.add_parser("demo", help="run on a synthetic market")
     common(p)
-    p.add_argument("--bars", type=int, default=24 * 365)
+    p.add_argument("--bars", type=int, default=None, help="default: one year of bars")
     p.add_argument("--seed", type=int, default=7)
     p.set_defaults(fn=cmd_demo)
 
@@ -258,6 +281,8 @@ def main(argv=None) -> int:
         p.add_argument("--mandates", metavar="DIR", help="take parameters from the signed ledger in DIR")
         p.add_argument("--expect-genesis", help="pinned genesis hash for --mandates")
         p.add_argument("--capital-usd", type=float, default=500.0, help="ignored with --mandates")
+        p.add_argument("--base", choices=["1h", "15m"],
+                       help="bar size: 1h single-timeframe, 15m = 15m scalp / 4h swing / 1d trend filter")
 
     p = sub.add_parser("validate", help="walk-forward test: does the edge survive unseen data?")
     governed(p)
@@ -288,7 +313,7 @@ def main(argv=None) -> int:
         return gov_cli.run(args)
     try:
         return args.fn(args)
-    except (LedgerError, SignatureError, signal_feed.FeedError) as e:
+    except (LedgerError, SignatureError, signal_feed.FeedError, DataError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 

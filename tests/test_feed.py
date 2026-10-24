@@ -14,7 +14,7 @@ from sats_engine.data.loaders import write_rows
 from sats_engine.models import Bar
 
 BARS, SNAPS = synthetic.generate(n_bars=24 * 200, seed=11)
-SMALL = validate.ValidationParams(warmup_bars=240, train_bars=24 * 30, test_bars=24 * 15, min_trips=5)
+SMALL = validate.ValidationParams(warmup_hours=240, train_hours=24 * 30, test_hours=24 * 15, min_trips=5)
 
 
 def flat(n):
@@ -42,7 +42,7 @@ class WalkForwardTests(unittest.TestCase):
         r = validate.walk_forward(BARS, SNAPS, params=SMALL)
         folds = r["folds"]
         self.assertGreaterEqual(len(folds), 3)
-        self.assertEqual(folds[0]["test_from"], BARS[SMALL.warmup_bars + SMALL.train_bars].ts)
+        self.assertEqual(folds[0]["test_from"], BARS[SMALL.warmup_hours + SMALL.train_hours].ts)
         for a, b in zip(folds, folds[1:]):
             self.assertEqual(b["test_from"], a["test_to"] + 3600)
         self.assertIn(r["verdict"], (validate.PASS, validate.FAIL, validate.INSUFFICIENT))

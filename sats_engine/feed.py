@@ -33,8 +33,10 @@ from .governance.ledger import State as GovState
 from .governance.ledger import canonical, digest
 from .models import Bar, OnChainSnapshot
 from .strategy.accumulator import SatsRatchet
+from .strategy.multitf import MultiTimeframeRatchet, engine_class
+from .timeframes import tf_name
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: per-timeframe block + higher-timeframe blocking
 GENESIS_PREV = "0" * 64
 STALE_AFTER_S = 2 * 3600
 
@@ -47,6 +49,13 @@ def _r(x: Optional[float], nd: int) -> Optional[float]:
     return None if x is None else round(x, nd)
 
 
+def _tf_block(close, regime, ema, trend, atr, rsi, er, bar_ts=None) -> dict:
+    return {
+        "bar_ts": bar_ts, "close": _r(close, 2), "regime": regime, "ema": _r(ema, 2),
+        "trend_ema": _r(trend, 2), "atr": _r(atr, 2), "rsi": _r(rsi, 2), "efficiency": _r(er, 4),
+    }
+
+
 class SignalFeed:
     def __init__(
         self,
@@ -57,7 +66,7 @@ class SignalFeed:
         stale_after_s: int = STALE_AFTER_S,
     ):
         self.cfg = config
-        self.engine = SatsRatchet(config, initial_btc)
+        self.engine: SatsRatchet = engine_class(config)(config, initial_btc)
         self.governance = governance
         self.validation = validation
         self.stale_after_s = stale_after_s
@@ -76,6 +85,23 @@ class SignalFeed:
             return "trending_up" if close > trend else "trending_down"
         return "choppy"
 
+    def _timeframes(self, bar: Bar) -> Optional[dict]:
+        """Per-timeframe view for the multi-timeframe engine; None otherwise."""
+        eng = self.engine
+        if not isinstance(eng, MultiTimeframeRatchet):
+            return None
+        sc, sw, d = eng.scalp, eng.swing, eng.daily
+        bb_z = (bar.close - sc.bb.mean) / sc.bb.std if sc.bb.ready and sc.bb.std > 0 else None
+        b4 = eng.last_swing_bar
+        return {
+            "15m": {"close": _r(bar.close, 2), "bb_z": _r(bb_z, 3), "efficiency": _r(sc.er.value, 4)},
+            "4h": _tf_block(b4.close if b4 else None, self._regime(b4.close) if b4 else "warming_up",
+                            sw.ema.value, sw.trend.value, sw.atr.value, sw.rsi.value, sw.er.value,
+                            b4.ts if b4 else None),
+            "1d": {"close": _r(d.close, 2), "regime": d.regime, "ema": _r(d.ema.value, 2),
+                   "efficiency": _r(d.er.value, 4)},
+        }
+
     def step(self, bar: Bar, snaps: Sequence[OnChainSnapshot] = ()) -> dict:
         """Process one closed bar and return the record body (unchained)."""
         for s in snaps:
@@ -84,7 +110,7 @@ class SignalFeed:
         closed_before = len(eng.closed)
         plans = eng.on_bar(bar, list(snaps))
 
-        if self.cfg.dca.contribution_usd > 0 and self._i % self.cfg.dca.interval_bars == 0:
+        if eng.dca_due(self._i):
             price = bar.close * (1 + self.cfg.fees.slippage)
             self.hodl += self.cfg.dca.contribution_usd * (1 - self.cfg.fees.taker) / price
         self._i += 1
@@ -95,11 +121,13 @@ class SignalFeed:
         pr = eng.pressure.last
         sw = eng.swing
 
+        blocked = getattr(eng, "blocked", [])
         signals = []
         for p in plans:
             taken = any(t.kind == p.kind and t.opened_ts == bar.ts for t in eng.open)
             signals.append({
                 "leg": p.kind, "action": "would_sell", "taken_in_sim": taken,
+                "blocked_by_htf": p in blocked,
                 "target": _r(p.target, 2), "stop": _r(p.stop, 2),
                 "size_mult": _r(p.size_mult, 4), "why": p.reason,
             })
@@ -143,6 +171,8 @@ class SignalFeed:
                 "fee_z": _r(pr.fee_z, 3), "mempool_z": _r(pr.mempool_z, 3), "whale_z": _r(pr.whale_z, 3),
                 "miner_stress": pr.miner_stress,
             },
+            "base_timeframe": tf_name(self.cfg.bar_seconds),
+            "timeframes": self._timeframes(bar),
             "signals": signals,
             "dca_multiplier": _r(eng.dca_multiplier(pr), 4),
             "stack": {

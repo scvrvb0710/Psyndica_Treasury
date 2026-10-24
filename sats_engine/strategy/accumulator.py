@@ -32,6 +32,9 @@ from .scalp import ScalpSignal
 from .swing import SwingSignal, TicketPlan
 
 
+HOLD_CAP_S = 72 * 3600  # doctrine: no ticket stays open longer than 72h, on any timeframe
+
+
 @dataclass
 class Exposure:
     btc: float
@@ -56,6 +59,11 @@ class SatsRatchet:
         self.peak_stack_btc = initial_btc
         self.halted = False
         self._bar_index = 0
+        # Bar length each leg's signals are measured in (multi-timeframe
+        # engines override this); hold limits are converted to seconds.
+        self.leg_seconds = {"swing": config.bar_seconds, "scalp": config.bar_seconds}
+        # DCA interval is configured in hours; convert to base bars.
+        self.dca_every = max(1, round(config.dca.interval_bars * 3600 / config.bar_seconds))
 
     # ------------------------------------------------------------------ state
 
@@ -171,7 +179,7 @@ class SatsRatchet:
             usd_held=gross - fee_usd,
             target=plan.target,
             stop=plan.stop,
-            expires_ts=bar.ts + plan.max_hold_bars * self.cfg.bar_seconds,
+            expires_ts=bar.ts + min(plan.max_hold_bars * self.leg_seconds[plan.kind], HOLD_CAP_S),
         )
         self.open.append(ticket)
         self.fills.append(
@@ -200,9 +208,12 @@ class SatsRatchet:
             score += 0.5
         return max(d.min_mult, min(d.max_mult, 1.0 + score))
 
+    def dca_due(self, bar_index: int) -> bool:
+        return self.cfg.dca.contribution_usd > 0 and bar_index % self.dca_every == 0
+
     def _dca(self, bar: Bar, pressure: PressureReading) -> None:
         d = self.cfg.dca
-        if d.contribution_usd <= 0 or self._bar_index % d.interval_bars != 0:
+        if not self.dca_due(self._bar_index):
             return
         self.usd_reserve += d.contribution_usd
         spend = min(self.usd_reserve, d.contribution_usd * self.dca_multiplier(pressure))

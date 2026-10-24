@@ -15,6 +15,22 @@ from typing import Iterable
 from ..models import Bar, OnChainSnapshot
 
 
+class DataError(RuntimeError):
+    pass
+
+
+def check_spacing(bars: list[Bar], seconds: int) -> None:
+    """Refuse bars whose typical spacing isn't `seconds` (e.g. hourly data
+    fed to the 15m engine would silently produce nonsense)."""
+    if len(bars) < 3:
+        return
+    gaps = sorted(b.ts - a.ts for a, b in zip(bars, bars[1:]))
+    median = gaps[len(gaps) // 2]
+    if median != seconds:
+        raise DataError(f"bars are spaced {median}s apart but the engine expects {seconds}s "
+                        f"(check --base or the CSV)")
+
+
 def load_bars(path: str | Path) -> list[Bar]:
     bars = []
     with open(path, newline="") as f:

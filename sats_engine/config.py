@@ -73,7 +73,7 @@ class OnChainParams:
 @dataclass
 class DCAParams:
     contribution_usd: float = 0.0  # USD added every interval (0 disables)
-    interval_bars: int = 24 * 7
+    interval_bars: int = 24 * 7  # hours between contributions (converted to the bar size)
     min_mult: float = 0.5
     max_mult: float = 2.0
 

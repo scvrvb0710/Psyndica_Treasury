@@ -24,15 +24,19 @@ from typing import Optional, Sequence
 from . import backtest
 from .config import EngineConfig
 from .models import Bar, OnChainSnapshot
+from .strategy.multitf import warmup_hours as engine_warmup_hours
+from .timeframes import tf_name
 
 PASS, FAIL, INSUFFICIENT = "PASS", "FAIL", "INSUFFICIENT"
 
 
 @dataclass
 class ValidationParams:
-    warmup_bars: int = 24 * 10  # > the 200-bar trend EMA, never scored
-    train_bars: int = 24 * 90
-    test_bars: int = 24 * 30
+    # Windows are in hours and converted to the bar size. Warm-up is raised
+    # automatically to whatever the engine's slowest indicator needs.
+    warmup_hours: int = 24 * 10
+    train_hours: int = 24 * 90
+    test_hours: int = 24 * 30
     min_folds: int = 3
     min_trips: int = 30  # out-of-sample round trips across all folds
     min_positive_frac: float = 0.6  # share of folds that must beat HODL
@@ -79,22 +83,26 @@ def walk_forward(
     keys = list(p.grid)
     candidates = [dict(zip(keys, combo)) for combo in itertools.product(*(p.grid[k] for k in keys))]
 
+    per_hour = 3600 / base.bar_seconds
+    warmup = round(max(p.warmup_hours, engine_warmup_hours(base)) * per_hour)
+    train_n, test_n = round(p.train_hours * per_hour), round(p.test_hours * per_hour)
+
     folds = []
     start = 0
-    while start + p.warmup_bars + p.train_bars + p.test_bars <= len(bars):
-        train = bars[start: start + p.warmup_bars + p.train_bars]
-        test = bars[start + p.train_bars: start + p.warmup_bars + p.train_bars + p.test_bars]
+    while start + warmup + train_n + test_n <= len(bars):
+        train = bars[start: start + warmup + train_n]
+        test = bars[start + train_n: start + warmup + train_n + test_n]
         train_snaps = _window_snaps(snaps, train, base.bar_seconds)
         test_snaps = _window_snaps(snaps, test, base.bar_seconds)
 
         best, best_edge = None, None
         for cand in candidates:
-            res = backtest.run(train, train_snaps, apply_overrides(base, cand), score_from=p.warmup_bars)
+            res = backtest.run(train, train_snaps, apply_overrides(base, cand), score_from=warmup)
             if best_edge is None or res.edge_vs_hodl > best_edge:
                 best, best_edge = cand, res.edge_vs_hodl
-        res = backtest.run(test, test_snaps, apply_overrides(base, best), score_from=p.warmup_bars)
+        res = backtest.run(test, test_snaps, apply_overrides(base, best), score_from=warmup)
         folds.append({
-            "test_from": test[p.warmup_bars].ts,
+            "test_from": test[warmup].ts,
             "test_to": test[-1].ts,
             "params": best,
             "train_edge": round(best_edge, 6),
@@ -102,7 +110,7 @@ def walk_forward(
             "test_trips": res.trips,
             "test_max_drawdown": round(res.max_drawdown, 6),
         })
-        start += p.test_bars
+        start += test_n
 
     trips = sum(f["test_trips"] for f in folds)
     edges = [f["test_edge"] for f in folds]
@@ -134,7 +142,8 @@ def walk_forward(
             "onchain_snapshots": len(snaps),
         },
         "method": {
-            "warmup_bars": p.warmup_bars, "train_bars": p.train_bars, "test_bars": p.test_bars,
+            "base_timeframe": tf_name(base.bar_seconds),
+            "warmup_hours": round(warmup / per_hour), "train_hours": p.train_hours, "test_hours": p.test_hours,
             "min_folds": p.min_folds, "min_trips": p.min_trips, "min_positive_frac": p.min_positive_frac,
             "grid": p.grid,
         },

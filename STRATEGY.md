@@ -39,6 +39,10 @@ Three ideas combine:
 | Scalp | ER ≤ 0.30, close above the 2.2σ Bollinger band, distance to mean ≥ max(2.5× fees, edge floor) | band mean | +1.5σ | 12h |
 | Smart DCA (opt.) | weekly | — | — | — |
 
+**Multi-timeframe mode (`--base 15m`):** scalp runs on 15m bars, swing on
+4h bars, and an efficient daily uptrend blocks every sell. The higher
+timeframe takes precedence. Holds are capped at 72h on every timeframe.
+
 Smart DCA spends 0.5–2× the contribution. It buys more when price is
 stretched below trend, more again on on-chain panic or miner stress. Unspent
 cash is held, not churned.

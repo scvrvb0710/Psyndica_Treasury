@@ -17,6 +17,7 @@ python3 -m sats_engine demo                     # synthetic market, $500 stack
 python3 -m sats_engine demo --dca-usd 50        # with weekly smart DCA
 python3 -m sats_engine backtest --prices btc_1h.csv --onchain snaps.csv
 python3 -m sats_engine validate --prices btc_1h.csv --onchain snaps.csv   # walk-forward verdict
+python3 -m sats_engine validate --base 15m --prices btc_15m.csv            # 15m scalp / 4h swing / 1d filter
 python3 -m sats_engine feed run --prices btc_1h.csv --onchain snaps.csv --validation validation.json
 python3 -m sats_engine scan                     # one block-explorer reading
 python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots node (pruned OK)
@@ -47,7 +48,9 @@ sats_engine/
   signals/onchain.py     On-chain Pressure Index (fees, mempool, whales, hashrate)
   strategy/swing.py      fade stretched rallies in inefficient markets
   strategy/scalp.py      fee-gated Bollinger mean reversion in chop
-  strategy/accumulator.py SatsRatchet: core/sleeve, tickets, halt, smart DCA
+  strategy/accumulator.py SatsRatchet: core/sleeve, tickets, halt, smart DCA, 72h hold cap
+  strategy/multitf.py    15m scalp / 4h swing / 1d trend filter on one portfolio
+  timeframes.py          UTC-aligned resampling; only closed bars are emitted
   data/explorer.py       mempool.space-compatible client (self-host friendly)
   data/rpc.py            direct Knots/Core JSON-RPC backend (pruned-node compatible)
   data/loaders.py        CSV IO

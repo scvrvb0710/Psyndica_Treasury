@@ -11,6 +11,25 @@ signed ledger (--mandates) ─┤                 + governance state + walk-forw
 validation.json ────────────┘
 ```
 
+## Timeframes
+
+Pick the bar size with `--base` (or the governed `engine.bar_seconds`):
+
+| `--base` | Input bars | Engine |
+|---|---|---|
+| `1h` (default) | hourly | single timeframe: both legs on 1h |
+| `15m` | 15-minute | **multi-timeframe**: scalp on 15m, swing on 4h, daily trend filter |
+
+In `15m` mode the higher timeframe takes precedence: during an efficient
+daily uptrend every sell signal is blocked (`blocked_by_htf: true`). 4h
+and daily bars are built from the 15m input, aligned to UTC, and emitted
+only once closed. The 72h hold cap applies in hours on every timeframe.
+Bar spacing is checked: hourly data fed to `--base 15m` is refused.
+
+The validator raises warm-up automatically: about 51 days for `15m`,
+because the daily filter needs 50 daily bars. Plan on at least a year of
+15m history for a meaningful verdict.
+
 **The feed never instructs anyone to trade.** Signals are `would_sell` and
 `would_rebuy`. Nothing in this repo places orders.
 
@@ -19,9 +38,11 @@ validation.json ────────────┘
 ```bash
 # 1. Is there an edge at all? (repeat whenever there's materially more data)
 python3 -m sats_engine validate --prices btc_1h.csv --onchain snaps.csv --out validation.json
+#    multi-timeframe (15m / 4h / 1d) from 15-minute bars:
+python3 -m sats_engine validate --base 15m --prices btc_15m.csv --onchain snaps.csv --out validation.json
 
 # 2. Produce the feed (re-runs append only new bars; --follow keeps going)
-python3 -m sats_engine feed run --prices btc_1h.csv --onchain snaps.csv \
+python3 -m sats_engine feed run [--base 15m] --prices btc_1h.csv --onchain snaps.csv \
     --validation validation.json --mandates governance --expect-genesis <hash> \
     --out feed.jsonl --follow
 
@@ -34,16 +55,18 @@ For live use, keep appending closed hourly bars to the prices CSV and run
 rows each interval. There's no exchange price logger in the repo yet: the
 prices CSV has to be maintained from an exchange export.
 
-## Record (schema_version 1)
+## Record (schema_version 2)
 
 | Field | Meaning |
 |---|---|
 | `seq`, `prev_hash`, `hash`, `trace_id` | chain position; `hash` = sha256 of the canonical record without `hash`/`trace_id`; `trace_id` = first 16 hex chars of `hash` |
 | `ts` | bar close, unix seconds |
 | `posture` | how much weight to give the signals (below) |
-| `market` | `close`, `regime` (`trending_up` / `trending_down` / `choppy` / `warming_up`), `ema`, `trend_ema`, `atr`, `rsi`, `efficiency` (Kaufman ER, 0–1) |
+| `market` | the swing leg's view: `close`, `regime` (`trending_up` / `trending_down` / `choppy` / `warming_up`), `ema`, `trend_ema`, `atr`, `rsi`, `efficiency` (Kaufman ER, 0–1) |
+| `base_timeframe` | `1h` or `15m` |
+| `timeframes` | `15m` mode only: `15m` (`close`, `bb_z`, `efficiency`), `4h` (last closed 4h bar: `bar_ts`, `close`, `regime`, indicators), `1d` (`close`, `regime`, `ema`, `efficiency`). `null` in `1h` mode |
 | `onchain` | `fresh`, `age_s`, `heat` (−1..1), `fee_z`, `mempool_z`, `whale_z`, `miner_stress` |
-| `signals[]` | `would_sell`: `leg`, `target`, `stop`, `size_mult`, `taken_in_sim`, `why`. `would_rebuy`: `leg`, `exit`, `price`, `sats_delta` |
+| `signals[]` | `would_sell`: `leg`, `target`, `stop`, `size_mult`, `taken_in_sim`, `blocked_by_htf`, `why`. `would_rebuy`: `leg`, `exit`, `price`, `sats_delta` |
 | `dca_multiplier` | 0.5–2× suggested size for the next DCA buy |
 | `stack` | simulated `btc`, `hodl_btc`, `edge_vs_hodl`, `open_tickets`, `engine_halted` |
 | `governance` | `mode`, `halted`, `review_required`, `ledger_head`, `genesis`, or `null` if run without a ledger |

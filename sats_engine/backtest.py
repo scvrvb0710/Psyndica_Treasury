@@ -12,6 +12,7 @@ from typing import Optional, Sequence
 from .config import EngineConfig
 from .models import Bar, OnChainSnapshot, Ticket
 from .strategy.accumulator import SatsRatchet
+from .strategy.multitf import MultiTimeframeRatchet, is_multi_timeframe
 
 
 @dataclass
@@ -93,7 +94,7 @@ def run(
     if not 0 <= score_from < len(bars):
         raise ValueError("score_from must index into bars")
     cfg = config or EngineConfig()
-    engine = SatsRatchet(cfg, initial_btc)
+    engine = (MultiTimeframeRatchet if is_multi_timeframe(cfg) else SatsRatchet)(cfg, initial_btc)
     snaps = sorted(snaps or (), key=lambda s: s.ts)
 
     hodl = initial_btc
@@ -112,7 +113,7 @@ def run(
             j += 1
         engine.on_bar(bar, batch)
 
-        if cfg.dca.contribution_usd > 0 and i % cfg.dca.interval_bars == 0:
+        if engine.dca_due(i):
             price = bar.close * (1 + cfg.fees.slippage)
             hodl += cfg.dca.contribution_usd * (1 - cfg.fees.taker) / price
 
