@@ -43,8 +43,9 @@ least two weeks, per SECURITY.md.
 ```bash
 cd collector
 npx wrangler@<version> login
-# D1 database "sats-collector" already exists with schema.sql applied
-# (id in wrangler.toml). For a fresh account instead:
+# D1 database "sats-collector" already exists in the Psyndica Cloudflare
+# account with schema.sql applied (account and database ids in wrangler.toml).
+# For a fresh account instead:
 #   npx wrangler@<version> d1 create sats-collector   # copy database_id into wrangler.toml
 #   npx wrangler@<version> d1 execute sats-collector --remote --file=schema.sql
 

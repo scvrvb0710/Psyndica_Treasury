@@ -1,5 +1,7 @@
 name = "sats-collector"
 main = "src/index.js"
+# Psyndica Cloudflare account: deploys can never land in a personal account.
+account_id = "a7af458288e323f4df46109c929a2541"
 compatibility_date = "2026-10-01"
 workers_dev = true
 
@@ -13,7 +15,7 @@ STALE_SECONDS = "600"
 [[d1_databases]]
 binding = "DB"
 database_name = "sats-collector"
-database_id = "3993d13c-6b60-4ba3-bc23-bff729215369"
+database_id = "714cdf21-77ae-4348-bbd3-39fb6f69cd0d"
 
 # Secrets - set with `npx wrangler secret put <NAME>`, never commit them:
 #   COLLECTOR_SECRET  (required) 32+ random chars, shared with the scanner
