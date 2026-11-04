@@ -20,6 +20,7 @@ python3 -m sats_engine validate --prices btc_1h.csv --onchain snaps.csv   # walk
 python3 -m sats_engine validate --base 15m --prices btc_15m.csv            # 15m scalp / 4h swing / 1d filter
 python3 -m sats_engine feed run --prices btc_1h.csv --onchain snaps.csv --validation validation.json
 python3 -m sats_engine terminal feed.jsonl -f                # live dashboard (read-only, works over SSH)
+python3 -m sats_engine dashboard feed.jsonl --mandates governance --seat SUN -f   # HTML command center
 python3 -m sats_engine scan                     # one block-explorer reading
 python3 -m sats_engine scan --rpc --watch --save snaps.csv   # your own Knots node (pruned OK)
 python3 -m sats_engine scan --watch --save snaps.csv \
@@ -32,6 +33,7 @@ Running a node on a VPS until you have hardware: [docs/VPS_NODE.md](docs/VPS_NOD
 Collecting snapshots in Cloudflare with stale-data alerts: [collector/README.md](collector/README.md).
 Council governance as signed mandates (Hashira 12): [docs/GOVERNANCE.md](docs/GOVERNANCE.md).
 Sovereignty roadmap for the council: [SOVEREIGNTY.md](SOVEREIGNTY.md).
+Human-in-the-loop command center (your vote queue, halt, shadow book): [docs/COMMAND_CENTER.md](docs/COMMAND_CENTER.md).
 The unified signal feed (one hash-chained record per bar) and its consumer contract: [docs/FEED.md](docs/FEED.md).
 Psyndica system map (Collective ⇄ Labs, editable statuses): [map/](map/README.md).
 
@@ -61,6 +63,7 @@ sats_engine/
   validate.py            walk-forward falsification test -> PASS / FAIL / INSUFFICIENT
   feed.py                the one algorithm: every layer -> one hash-chained record per bar
   terminal.py            live ANSI dashboard of the feed (no deps, NO_COLOR aware)
+  dashboard.py           HTML command center: needs-you queue, sign commands, council (no JS, strict CSP)
   data/collector.py      signed push/export client for the Cloudflare collector
   governance/            signed mandates: rules (Hashira 12), ledger replay, ssh signature checks, gov CLI
   cli.py                 demo | backtest | validate | feed | terminal | scan | collector-export | gov
