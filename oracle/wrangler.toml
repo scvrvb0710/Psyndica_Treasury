@@ -1,0 +1,27 @@
+name = "psyndica-oracle"
+main = "src/index.js"
+# Psyndica Cloudflare account: deploys can never land in a personal account.
+account_id = "a7af458288e323f4df46109c929a2541"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# Workers AI: open-weight models hosted by Cloudflare. No third-party API key.
+[ai]
+binding = "AI"
+
+# Per-caller throttle. Cheap insurance against a leaked token burning the bill.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1701"
+simple = { limit = 20, period = 60 }
+
+[vars]
+# Primary answers, fallback if the primary errors, guard screens both directions.
+# Any Workers AI chat model id works; swap without code changes.
+MODEL_PRIMARY = "@cf/openai/gpt-oss-120b"
+MODEL_FALLBACK = "@cf/meta/llama-3.3-70b-instruct-fp8-fast"
+MODEL_GUARD = "@cf/meta/llama-guard-3-8b"
+MAX_OUTPUT_TOKENS = "1500"
+
+# Secrets - set with `npx wrangler secret put <NAME>`, never commit them:
+#   ORACLE_TOKEN  (required) 32+ random chars, bearer token for /ask
