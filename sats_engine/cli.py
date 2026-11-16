@@ -1,4 +1,4 @@
-"""Command line: demo | backtest | scan | collector-export | gov | validate | feed | terminal.
+"""Command line: demo | backtest | scan | collector-export | gov | validate | feed | terminal | dashboard.
 
 Nothing here places orders. `scan` is shadow mode: it reads the block
 explorer, scores on-chain pressure, and logs the reading with a trace_id.
@@ -14,7 +14,7 @@ from dataclasses import asdict
 
 from . import backtest
 from . import feed as signal_feed
-from . import terminal
+from . import dashboard, terminal
 from . import validate as wf
 from .config import DCAParams, EngineConfig
 from .data import synthetic
@@ -24,6 +24,7 @@ from .data.rpc import DEFAULT_COOKIE, DEFAULT_RPC_URL, BitcoinRPC, NodeExplorer,
 from .data.loaders import DataError, append_snapshot, check_spacing, load_bars, load_onchain
 from .timeframes import tf_name, tf_seconds
 from .governance import cli as gov_cli
+from .governance import rules
 from .governance.ledger import LedgerError
 from .governance.ledger import load as load_ledger
 from .governance.sshsig import SignatureError, SSHVerifier
@@ -313,6 +314,20 @@ def main(argv=None) -> int:
     p.add_argument("--interval", type=float, default=2.0)
     p.add_argument("--no-verify", action="store_true", help="skip the chain check at startup")
     p.set_defaults(fn=lambda a: terminal.run(a.path, a.follow, a.interval, not a.no_verify))
+
+    p = sub.add_parser("dashboard", help="read-only HTML command center: feed, council, your vote queue")
+    p.add_argument("path", nargs="?", default="feed.jsonl")
+    p.add_argument("--mandates", help="signed ledger directory (e.g. governance)")
+    p.add_argument("--expect-genesis", help="pinned genesis hash; refuse to load anything else")
+    p.add_argument("--seat", choices=rules.SEATS, help="your seat: shows your vote queue and halt card")
+    p.add_argument("--out", default="dashboard.html")
+    p.add_argument("--follow", "-f", action="store_true", help="rewrite the page as data arrives")
+    p.add_argument("--interval", type=float, default=30.0)
+    p.add_argument("--history", type=int, default=500, help="feed records in view")
+    p.add_argument("--no-verify", action="store_true", help="skip the feed chain check")
+    p.set_defaults(fn=lambda a: dashboard.run(
+        a.path, a.out, a.mandates, a.expect_genesis, a.seat, a.follow, a.interval, not a.no_verify,
+        a.history, lambda d, g: load_ledger(d, SSHVerifier(), g)))
 
     gov_cli.register(sub)
 
